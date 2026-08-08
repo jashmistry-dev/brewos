@@ -193,33 +193,48 @@ These are defaults, not permanent hardcoded values.
 
 The Cafe Owner can change the appropriate settings later.
 
-8. Cafe Memberships
-Table: cafe_users
+# 8. Cafe Memberships
 
-Connects users to cafes.
+## Table: cafe_users
 
-Columns
-Column	Purpose
-id	Primary key
-cafe_id	Foreign key to cafes
-user_id	Foreign key to users
-branch_id	Optional default branch
-status	Membership status
-joined_at	Membership timestamp
-created_at	Creation timestamp
-updated_at	Last update timestamp
-Purpose
+Connects users to cafes and determines their tenant-specific membership and role.
+
+### Columns
+
+| Column | Purpose |
+|---|---|
+| id | Primary key |
+| cafe_id | Foreign key to cafes |
+| user_id | Foreign key to users |
+| branch_id | Optional branch assignment |
+| role_id | Foreign key to roles |
+| status | Membership status |
+| joined_at | Membership timestamp |
+| created_at | Creation timestamp |
+| updated_at | Last update timestamp |
+
+### Purpose
 
 A user can potentially belong to multiple cafes.
 
 Example:
 
 User A
-    ↓
-Cafe A → Manager
-Cafe B → Owner
+├── Cafe A → Manager
+└── Cafe B → Owner
 
-The user's role assignment will be handled through the authorization relationship.
+The `role_id` determines the user's role within that specific cafe membership.
+
+The `branch_id` can optionally determine the user's default operational branch.
+
+Example:
+
+User A
+↓
+Cafe A
+├── role → Manager
+└── branch → Ahmedabad Branch
+
 
 9. Branches
 Table: branches
