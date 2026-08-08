@@ -386,70 +386,125 @@ role_permission
   |
   1
 permissions
-11. Role Assignment
+# 11. Role Assignment
 
-The role system needs to support tenant-specific roles.
+The role of a user is determined by their cafe membership.
 
-The conceptual relationship is:
+The relationship is:
 
+```text
 User
   ↓
 Cafe Membership
-  ↓
-Role
-  ↓
-Permissions
+  ├── Cafe
+  ├── Branch
+  └── Role
+        ↓
+   Permissions
 
-A cafe owner should be able to create a custom role such as:
+The cafe_users table contains:
 
-Senior Cashier
+cafe_id
+user_id
+branch_id
+role_id
 
-and assign permissions to it.
+This allows the same user to have different roles in different cafes.
 
-The role must remain within the appropriate tenant scope.
+Example:
 
-Platform-level roles such as:
+User A
+│
+├── Cafe A
+│   └── Manager
+│
+└── Cafe B
+    └── Cafe Owner
+
+A tenant role must belong to the same cafe as the cafe membership.
+
+Valid:
+
+cafe_users.cafe_id = 1
+roles.cafe_id = 1
+
+Invalid:
+
+cafe_users.cafe_id = 1
+roles.cafe_id = 2
+
+Platform roles are different from tenant roles.
+
+Platform role:
+
+roles.cafe_id = NULL
+roles.scope = platform
+
+Example:
 
 Super Admin
 
-must remain controlled by BrewOS.
+Tenant role:
 
-12. Complete Relationship Map
+roles.cafe_id = specific cafe ID
+roles.scope = tenant
+
+Examples:
+
+Cafe Owner
+Manager
+Cashier
+Waiter
+Kitchen Staff
+Custom Roles
+
+# 12. Complete Relationship Map
+
+```text
                               USERS
                                 |
                                 | 1:N
                                 |
                            CAFE_USERS
-                                |
-                                | N:1
-                                |
-                              CAFES
-                    ┌───────────┼────────────┐
-                    |           |            |
-                   1:N         1:N          1:N
-                    |           |            |
-                BRANCHES     CUSTOMERS    CATEGORIES
-                    |                         |
-                   1:N                       1:N
-                    |                         |
-          RESTAURANT_TABLES              MENU_ITEMS
-                    |                         |
-                   1:N                       1:N
-                    |                         |
-                    └──────────┐    ┌─────────┘
-                               |    |
-                               ▼    ▼
-                              ORDERS
-                                |
-                        ┌───────┼────────┐
-                        |       |        |
-                       1:N     1:N      1:1
-                        |       |        |
-                  ORDER_ITEMS PAYMENTS INVOICES
-                        |
-                       N:1
-                        |
-                   MENU_ITEMS
+                         /      |      \
+                        /       |       \
+                       ▼        ▼        ▼
+                    CAFES    BRANCHES   ROLES
+                       |                    |
+                       |                    | 1:N
+                       |                    ▼
+                       |             ROLE_PERMISSION
+                       |                    |
+                       |                    | N:1
+                       |                    ▼
+                       |               PERMISSIONS
+                       |
+              ┌────────┼───────────────┐
+              |        |               |
+             1:N      1:N             1:N
+              |        |               |
+          BRANCHES  CUSTOMERS      CATEGORIES
+              |                       |
+             1:N                     1:N
+              |                       |
+     RESTAURANT_TABLES            MENU_ITEMS
+              |                       |
+             1:N                     1:N
+              |                       |
+              └──────────┐    ┌───────┘
+                         |    |
+                         ▼    ▼
+                        ORDERS
+                          |
+                  ┌───────┼────────┐
+                  |       |        |
+                 1:N     1:N      1:1
+                  |       |        |
+            ORDER_ITEMS PAYMENTS INVOICES
+                  |
+                 N:1
+                  |
+             MENU_ITEMS
 
 
 CAFES
@@ -465,17 +520,44 @@ PLANS
   | 1:N
   ▼
 PLAN_FEATURES
+Role Scope
 
+Platform roles:
 
-ROLES
-  |
-  | 1:N
-  ▼
+roles
+├── cafe_id = NULL
+└── scope = platform
+
+Example:
+
+Super Admin
+
+Tenant roles:
+
+roles
+├── cafe_id = specific cafe
+└── scope = tenant
+
+Example:
+
+Cafe A
+├── Cafe Owner
+├── Manager
+├── Cashier
+└── Custom Roles
+
+A user's role is determined through:
+
+USERS
+   ↓
+CAFE_USERS
+   ↓
+ROLE
+   ↓
 ROLE_PERMISSION
-  ▲
-  | N:1
-  |
+   ↓
 PERMISSIONS
+
 13. Tenant Ownership Map
 
 Tenant ownership must be clear.
@@ -528,6 +610,7 @@ Tenant isolation must be enforced server-side.
 Frontend filtering is not sufficient.
 
 15. Relationship Summary
+| Role | Cafe User | 1:N |
 Parent	Child	Relationship
 User	Cafe User	1:N
 Cafe	Cafe User	1:N
