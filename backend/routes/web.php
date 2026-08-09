@@ -20,6 +20,7 @@ use App\Http\Controllers\Tenant\OrderController;
 use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\StaffController;
 use App\Http\Controllers\Tenant\TableController;
+use App\Http\Controllers\Tenant\TenantSubscriptionController;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\Route;
 
@@ -99,6 +100,11 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     // Phase 2D — Invoice Settings
     Route::get('/invoice-settings', [InvoiceSettingController::class, 'show'])->name('tenant.invoice_settings.show');
     Route::put('/invoice-settings', [InvoiceSettingController::class, 'update'])->name('tenant.invoice_settings.update');
+
+    // Phase 3B — Tenant Subscription Billing
+    Route::get('/subscription', [TenantSubscriptionController::class, 'index'])->name('tenant.subscription.show');
+    Route::post('/subscription/subscribe', [TenantSubscriptionController::class, 'subscribe'])->name('tenant.subscription.subscribe');
+    Route::post('/subscription/cancel', [TenantSubscriptionController::class, 'cancel'])->name('tenant.subscription.cancel');
 });
 
 Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin')->group(function () {
