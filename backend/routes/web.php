@@ -18,6 +18,7 @@ use App\Http\Controllers\Tenant\KitchenDisplayController;
 use App\Http\Controllers\Tenant\MenuItemController;
 use App\Http\Controllers\Tenant\OrderController;
 use App\Http\Controllers\Tenant\PaymentController;
+use App\Http\Controllers\Tenant\ReportController;
 use App\Http\Controllers\Tenant\StaffController;
 use App\Http\Controllers\Tenant\TableController;
 use App\Http\Controllers\Tenant\TenantSubscriptionController;
@@ -105,6 +106,11 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     Route::get('/subscription', [TenantSubscriptionController::class, 'index'])->name('tenant.subscription.show');
     Route::post('/subscription/subscribe', [TenantSubscriptionController::class, 'subscribe'])->name('tenant.subscription.subscribe');
     Route::post('/subscription/cancel', [TenantSubscriptionController::class, 'cancel'])->name('tenant.subscription.cancel');
+
+    // Phase 4A — Basic Reports
+    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('tenant.reports.sales');
+    Route::get('/reports/revenue', [ReportController::class, 'revenue'])->name('tenant.reports.revenue');
+    Route::get('/reports/staff', [ReportController::class, 'staff'])->name('tenant.reports.staff');
 });
 
 Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin')->group(function () {
