@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\PlanFeatureController;
 use App\Http\Controllers\Admin\SubscriptionController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Public\PublicOrderController;
+use App\Http\Controllers\Tenant\AnalyticsController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\CafeRegistrationController;
 use App\Http\Controllers\Tenant\CafeSettingsController;
@@ -111,6 +112,13 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('tenant.reports.sales');
     Route::get('/reports/revenue', [ReportController::class, 'revenue'])->name('tenant.reports.revenue');
     Route::get('/reports/staff', [ReportController::class, 'staff'])->name('tenant.reports.staff');
+
+    // Phase 4B — Advanced Analytics (Rate limited 120 req/min/user)
+    Route::middleware(['throttle:120,1'])->group(function () {
+        Route::get('/analytics/customers', [AnalyticsController::class, 'customers'])->name('tenant.analytics.customers');
+        Route::get('/analytics/menu', [AnalyticsController::class, 'menu'])->name('tenant.analytics.menu');
+        Route::get('/analytics/peak-hours', [AnalyticsController::class, 'peakHours'])->name('tenant.analytics.peak_hours');
+    });
 });
 
 Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin')->group(function () {
