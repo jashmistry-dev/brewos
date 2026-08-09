@@ -290,7 +290,7 @@ Table: invoices
 Column	Type	Nullable	Default	Key
 id	BIGINT UNSIGNED	No	Auto Increment	PK
 cafe_id	BIGINT UNSIGNED	No	—	FK, INDEX
-order_id	BIGINT UNSIGNED	No	—	FK, INDEX
+order_id	BIGINT UNSIGNED	No	—	FK, UNIQUE
 invoice_number	VARCHAR(100)	No	—	INDEX
 subtotal	DECIMAL(12,2)	No	0.00	—
 tax	DECIMAL(12,2)	No	0.00	—
@@ -300,8 +300,14 @@ status	VARCHAR(30)	No	issued	INDEX
 issued_at	TIMESTAMP	Yes	NULL	—
 created_at	TIMESTAMP	Yes	NULL	—
 updated_at	TIMESTAMP	Yes	NULL	—
-Unique Constraint
+Unique Constraints
 UNIQUE(cafe_id, invoice_number)
+UNIQUE(order_id)
+
+The Order → Invoice relationship is strictly 1:1 in Phase 1, enforced by UNIQUE(order_id).
+If invoice revisions are introduced in a future phase, UNIQUE(order_id) will be dropped in a migration and documented in a new ADR.
+> Decision (ADR-005): UNIQUE(order_id) added. Resolves contradiction C3 from the Architecture Review.
+
 17. Invoice Settings
 Table: invoice_settings
 Column	Type	Nullable	Default	Key

@@ -110,15 +110,17 @@ cafes
 menu_items
 Cafe → Invoice Settings
 
-A cafe normally has one active invoice configuration.
+Each cafe has exactly one invoice configuration. This is a strict 1:1 relationship enforced by a database UNIQUE constraint on `invoice_settings.cafe_id`.
 
 cafes
   1
   |
-  | has one
+  | has one (UNIQUE enforced)
   |
   1
 invoice_settings
+
+> Decision (ADR-005): The word "normally" has been removed. This 1:1 relationship is definitive and database-enforced in Phase 1.
 4. Branch Relationships
 Branch → Restaurant Tables
 
@@ -275,21 +277,21 @@ For the initial MVP, most orders will probably have one successful payment.
 8. Invoice Relationships
 Order → Invoice
 
-An order can have an invoice.
-
-Initial MVP relationship:
+An order has exactly one invoice in Phase 1. This is a strict 1:1 relationship enforced by a database UNIQUE constraint on `invoices.order_id`.
 
 orders
   1
   |
-  | has one
+  | has one (UNIQUE enforced)
   |
   1
 invoices
 
-An invoice belongs to one order.
+An invoice belongs to exactly one order.
 
-The system may later support invoice revisions or credit notes without changing the original order.
+If invoice revisions or credit notes are required in a future phase, the UNIQUE(order_id) constraint will be explicitly dropped in a new migration and documented in a new ADR at that time.
+
+> Decision (ADR-005): UNIQUE(order_id) is now definitive. This resolves the contradiction where this document stated 1:1 but DatabaseSchema.md did not enforce it.
 
 9. Subscription Relationships
 Cafe → Subscriptions

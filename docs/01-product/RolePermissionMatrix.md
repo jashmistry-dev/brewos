@@ -548,46 +548,114 @@ User
 │
 └── Permissions
 
+The following examples use the canonical `resource.action` permission format established in Section 10
+and finalized in ADR-005. Aggregate permissions (`*.manage`) are prohibited.
+
+> Decision (ADR-005): All `*.manage` and `kitchen.*` permissions from the previous version of this
+> section have been replaced with specific `resource.action` permissions. This resolves contradiction
+> C4 identified in the Architecture Review.
+
 Example:
 
 Cafe Owner
 │
 ├── cafe.view
 ├── cafe.update
-├── staff.manage
-├── menu.manage
-├── order.manage
-├── payment.manage
-├── invoice.manage
+├── cafe.settings.update
+├── branch.view
+├── branch.create
+├── branch.update
+├── staff.view
+├── staff.create
+├── staff.update
+├── staff.delete
+├── role.view
+├── role.create
+├── role.update
+├── role.delete
+├── menu.view
+├── menu.create
+├── menu.update
+├── menu.delete
+├── category.view
+├── category.create
+├── category.update
+├── category.delete
+├── table.view
+├── table.create
+├── table.update
+├── table.delete
+├── order.view
+├── order.create
+├── order.update
+├── order.cancel
+├── order.kitchen.view
+├── order.kitchen.update
+├── customer.view
+├── customer.create
+├── customer.update
+├── payment.view
+├── payment.create
+├── invoice.view
+├── invoice.create
+├── invoice.download
+├── invoice.settings.update
 ├── report.view
-└── subscription.manage
+├── subscription.view
+└── subscription.update
 
 Manager
 │
-├── order.manage
-├── menu.manage
+├── order.view
+├── order.create
+├── order.update
+├── order.cancel
+├── order.kitchen.view
+├── order.kitchen.update
+├── menu.view
+├── menu.create
+├── menu.update
+├── category.view
+├── table.view
+├── table.update
+├── customer.view
 ├── staff.view
-├── kitchen.manage
 ├── payment.view
+├── payment.create
+├── invoice.view
+├── invoice.create
+├── invoice.download
 └── report.view
 
 Cashier
 │
 ├── order.view
 ├── order.create
+├── order.update
+├── order.cancel
+├── table.view
+├── customer.view
+├── customer.create
+├── payment.view
 ├── payment.create
-└── invoice.create
+├── invoice.view
+├── invoice.create
+└── invoice.download
 
 Waiter
 │
 ├── table.view
+├── order.view
 ├── order.create
+├── order.update
+├── customer.view
+├── customer.create
 └── menu.view
 
 Kitchen Staff
 │
-├── kitchen.view
-└── kitchen.order_status_update
+├── order.kitchen.view
+└── order.kitchen.update
 
 Customer
 │

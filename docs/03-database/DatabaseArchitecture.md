@@ -97,20 +97,42 @@ Stores roles used by the authorization system.
 | Column | Purpose |
 |---|---|
 | id | Primary key |
+| cafe_id | NULL for platform roles; specific cafe id for tenant roles |
 | name | Display name |
 | slug | Machine-readable role identifier |
 | scope | Platform or tenant |
 | created_at | Creation timestamp |
 | updated_at | Last update timestamp |
 
+### Role Scoping Rules
+
+Platform role:
+
+```
+cafe_id = NULL
+scope = platform
+```
+
+Example: `super-admin`
+
+Tenant role:
+
+```
+cafe_id = {specific cafe id}
+scope = tenant
+```
+
 Examples:
 
-- super-admin
 - cafe-owner
 - manager
 - cashier
 - waiter
 - kitchen-staff
+
+A tenant role must be assigned only to a `cafe_users` membership belonging to the same cafe.
+
+> **Decision (ADR-005):** The `cafe_id` column is required on the `roles` table. This resolves the discrepancy between the previous version of this document (which omitted `cafe_id`) and `DatabaseSchema.md` (which correctly included it). `DatabaseSchema.md` is authoritative.
 
 ---
 
@@ -445,7 +467,7 @@ Columns
 Column	Purpose
 id	Primary key
 cafe_id	Tenant owner
-order_id	Related order
+order_id	Related order — UNIQUE in Phase 1 (one invoice per order)
 invoice_number	Human-readable invoice number
 subtotal	Invoice subtotal
 tax	Tax amount
@@ -455,6 +477,12 @@ status	Invoice status
 issued_at	Issue timestamp
 created_at	Creation timestamp
 updated_at	Last update timestamp
+
+The Order → Invoice relationship is 1:1 in Phase 1, enforced by UNIQUE(order_id).
+
+If invoice revisions or credit notes are introduced in a future phase, the UNIQUE(order_id) constraint will be explicitly dropped in a migration, documented in a new ADR at that time.
+
+> **Decision (ADR-005):** UNIQUE(order_id) is now definitive. This resolves the contradiction where ERDiagram.md stated 1:1 but DatabaseSchema.md did not enforce it.
 18. Invoice Settings
 Table: invoice_settings
 
@@ -472,7 +500,11 @@ footer_text	Custom invoice footer
 created_at	Creation timestamp
 updated_at	Last update timestamp
 
-There should normally be one active invoice configuration per cafe.
+Each cafe has exactly one invoice configuration. This is enforced at the database level by a `UNIQUE` constraint on `invoice_settings.cafe_id`.
+
+This is a strict 1:1 relationship in Phase 1. If per-branch invoice settings are required in a future phase, this constraint will be explicitly revisited in a new ADR at that time.
+
+> **Decision (ADR-005):** The word "normally" has been removed. The 1:1 relationship is definitive and database-enforced.
 
 19. Subscription Plans
 Table: plans
