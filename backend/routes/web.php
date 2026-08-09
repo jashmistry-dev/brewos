@@ -47,13 +47,32 @@ Route::middleware(['throttle:60,1'])->prefix('public/qr')->group(function () {
 Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(function () {
     Route::get('/dashboard', function () {
         $cafe = app(TenantContext::class)->getCafe();
-        return response()->json([
-            'message' => 'Tenant dashboard loaded.',
+
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Tenant dashboard loaded.',
+                'cafe' => [
+                    'id' => $cafe->id,
+                    'name' => $cafe->name,
+                    'slug' => $cafe->slug,
+                ],
+            ]);
+        }
+
+        $branchCount = \App\Models\Branch::where('cafe_id', $cafe->id)->count();
+        $staffCount  = \App\Models\CafeUser::where('cafe_id', $cafe->id)->count();
+
+        return \Inertia\Inertia::render('Tenant/Dashboard', [
             'cafe' => [
-                'id' => $cafe->id,
-                'name' => $cafe->name,
-                'slug' => $cafe->slug,
+                'id'     => $cafe->id,
+                'name'   => $cafe->name,
+                'slug'   => $cafe->slug,
+                'email'  => $cafe->email,
+                'phone'  => $cafe->phone,
+                'status' => $cafe->status,
             ],
+            'branchCount' => $branchCount,
+            'staffCount'  => $staffCount,
         ]);
     })->name('tenant.dashboard');
 

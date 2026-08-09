@@ -5,18 +5,23 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreStaffRequest;
 use App\Http\Requests\Tenant\UpdateStaffRequest;
+use App\Models\Branch;
 use App\Models\CafeUser;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\TenantContext;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class StaffController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): JsonResponse|InertiaResponse
     {
         Gate::authorize('permission', 'staff.view');
 
@@ -26,17 +31,48 @@ class StaffController extends Controller
             ->with(['user', 'role', 'branch'])
             ->get();
 
-        return response()->json([
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'staff' => $staffMembers->map(fn ($cu) => [
+                    'id' => $cu->id,
+                    'user_id' => $cu->user_id,
+                    'name' => $cu->user?->name,
+                    'email' => $cu->user?->email,
+                    'role' => [
+                        'id' => $cu->role?->id,
+                        'name' => $cu->role?->name,
+                        'slug' => $cu->role?->slug,
+                    ],
+                    'branch' => $cu->branch ? [
+                        'id' => $cu->branch->id,
+                        'name' => $cu->branch->name,
+                        'slug' => $cu->branch->slug,
+                    ] : null,
+                    'status' => $cu->status,
+                ]),
+            ]);
+        }
+
+        $roles = Role::where(function ($q) use ($cafeId) {
+            $q->where('cafe_id', $cafeId)
+              ->orWhere(fn ($q2) => $q2->whereNull('cafe_id')->where('scope', 'platform'));
+        })->get();
+
+        $branches = Branch::where('cafe_id', $cafeId)->get();
+
+        return Inertia::render('Tenant/Staff', [
             'staff' => $staffMembers->map(fn ($cu) => [
                 'id' => $cu->id,
                 'user_id' => $cu->user_id,
                 'name' => $cu->user?->name,
                 'email' => $cu->user?->email,
+                'role_id' => $cu->role_id,
                 'role' => [
                     'id' => $cu->role?->id,
                     'name' => $cu->role?->name,
                     'slug' => $cu->role?->slug,
                 ],
+                'branch_id' => $cu->branch_id,
                 'branch' => $cu->branch ? [
                     'id' => $cu->branch->id,
                     'name' => $cu->branch->name,
@@ -44,10 +80,12 @@ class StaffController extends Controller
                 ] : null,
                 'status' => $cu->status,
             ]),
+            'roles' => $roles->map(fn ($r) => ['id' => $r->id, 'name' => $r->name, 'slug' => $r->slug]),
+            'branches' => $branches->map(fn ($b) => ['id' => $b->id, 'name' => $b->name, 'slug' => $b->slug]),
         ]);
     }
 
-    public function store(StoreStaffRequest $request): JsonResponse
+    public function store(StoreStaffRequest $request): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'staff.create');
 
@@ -75,21 +113,25 @@ class StaffController extends Controller
 
         $membership->load(['user', 'role', 'branch']);
 
-        return response()->json([
-            'message' => 'Staff member created successfully.',
-            'staff' => [
-                'id' => $membership->id,
-                'user_id' => $membership->user_id,
-                'name' => $membership->user?->name,
-                'email' => $membership->user?->email,
-                'role_id' => $membership->role_id,
-                'branch_id' => $membership->branch_id,
-                'status' => $membership->status,
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Staff member created successfully.',
+                'staff' => [
+                    'id' => $membership->id,
+                    'user_id' => $membership->user_id,
+                    'name' => $membership->user?->name,
+                    'email' => $membership->user?->email,
+                    'role_id' => $membership->role_id,
+                    'branch_id' => $membership->branch_id,
+                    'status' => $membership->status,
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Staff member created successfully.');
     }
 
-    public function update(UpdateStaffRequest $request, string $cafe_slug, int|string $staff_id): JsonResponse
+    public function update(UpdateStaffRequest $request, string $cafe_slug, int|string $staff_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'staff.update');
 
@@ -121,21 +163,25 @@ class StaffController extends Controller
 
         $membership->load(['user', 'role', 'branch']);
 
-        return response()->json([
-            'message' => 'Staff member updated successfully.',
-            'staff' => [
-                'id' => $membership->id,
-                'user_id' => $membership->user_id,
-                'name' => $membership->user?->name,
-                'email' => $membership->user?->email,
-                'role_id' => $membership->role_id,
-                'branch_id' => $membership->branch_id,
-                'status' => $membership->status,
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Staff member updated successfully.',
+                'staff' => [
+                    'id' => $membership->id,
+                    'user_id' => $membership->user_id,
+                    'name' => $membership->user?->name,
+                    'email' => $membership->user?->email,
+                    'role_id' => $membership->role_id,
+                    'branch_id' => $membership->branch_id,
+                    'status' => $membership->status,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Staff member updated successfully.');
     }
 
-    public function destroy(string $cafe_slug, int|string $staff_id): JsonResponse
+    public function destroy(string $cafe_slug, int|string $staff_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'staff.delete');
 
@@ -147,8 +193,12 @@ class StaffController extends Controller
 
         $membership->update(['status' => 'inactive']);
 
-        return response()->json([
-            'message' => 'Staff member access revoked successfully.',
-        ]);
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Staff member access revoked successfully.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Staff member access revoked successfully.');
     }
 }
