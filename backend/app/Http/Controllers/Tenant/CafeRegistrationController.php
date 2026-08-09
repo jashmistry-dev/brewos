@@ -10,8 +10,12 @@ use App\Models\CafeUser;
 use App\Models\User;
 use App\Services\DefaultTenantRolesService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class CafeRegistrationController extends Controller
@@ -20,7 +24,12 @@ class CafeRegistrationController extends Controller
         protected DefaultTenantRolesService $rolesService
     ) {}
 
-    public function store(RegisterCafeRequest $request): JsonResponse
+    public function create(): InertiaResponse
+    {
+        return Inertia::render('Auth/RegisterCafe');
+    }
+
+    public function store(RegisterCafeRequest $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validated();
 
@@ -66,23 +75,31 @@ class CafeRegistrationController extends Controller
             ];
         });
 
-        return response()->json([
-            'message' => 'Cafe registered successfully.',
-            'cafe' => [
-                'id' => $result['cafe']->id,
-                'name' => $result['cafe']->name,
-                'slug' => $result['cafe']->slug,
-            ],
-            'owner' => [
-                'id' => $result['user']->id,
-                'name' => $result['user']->name,
-                'email' => $result['user']->email,
-            ],
-            'default_branch' => [
-                'id' => $result['branch']->id,
-                'name' => $result['branch']->name,
-                'slug' => $result['branch']->slug,
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Cafe registered successfully.',
+                'cafe' => [
+                    'id' => $result['cafe']->id,
+                    'name' => $result['cafe']->name,
+                    'slug' => $result['cafe']->slug,
+                ],
+                'owner' => [
+                    'id' => $result['user']->id,
+                    'name' => $result['user']->name,
+                    'email' => $result['user']->email,
+                ],
+                'default_branch' => [
+                    'id' => $result['branch']->id,
+                    'name' => $result['branch']->name,
+                    'slug' => $result['branch']->slug,
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        Auth::login($result['user']);
+        $request->session()->regenerate();
+
+        return redirect()->route('tenant.dashboard', ['cafe_slug' => $result['cafe']->slug])
+            ->with('success', 'Cafe registered successfully. Welcome to BrewOS!');
     }
 }

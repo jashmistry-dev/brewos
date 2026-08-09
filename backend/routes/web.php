@@ -30,10 +30,13 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login');
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
+    Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+    Route::get('/register-cafe', [CafeRegistrationController::class, 'create'])->name('tenant.register.show');
+    Route::post('/register-cafe', [CafeRegistrationController::class, 'store'])->name('tenant.register');
+});
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth:web')->name('logout');
-
-Route::post('/register-cafe', [CafeRegistrationController::class, 'store'])->name('tenant.register');
 
 // Public QR Ordering Endpoints (Unauthenticated, Rate-limited 60 requests/min/IP)
 Route::middleware(['throttle:60,1'])->prefix('public/qr')->group(function () {

@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(append: [
+            \App\Http\Middleware\HandleInertiaRequests::class,
+        ]);
         $middleware->alias([
             'tenant'      => ResolveTenant::class,
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
