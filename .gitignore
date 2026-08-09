@@ -1,0 +1,88 @@
+# ==============================================================================
+# BrewOS — .gitignore
+# ==============================================================================
+
+# ── Secrets and Environment ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+private/
+secrets/
+
+# ── Laravel Backend ───────────────────────────────────────────────────────────
+backend/vendor/
+backend/node_modules/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/storage/logs/*.log
+backend/storage/framework/cache/data/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+backend/storage/app/public/
+backend/.phpunit.cache/
+backend/.phpunit.result.cache
+backend/bootstrap/cache/*.php
+backend/public/hot
+backend/public/storage
+backend/public/build/
+
+# ── Frontend Build Artifacts ──────────────────────────────────────────────────
+backend/public/build/
+backend/public/mix-manifest.json
+dist/
+build/
+
+# ── Node / npm ────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+docker/mysql/data/
+
+# ── IDE and Editor ────────────────────────────────────────────────────────────
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+storage/logs/
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+coverage/
+.phpunit.result.cache
+.phpunit.cache/
+
+# ── Temporary ────────────────────────────────────────────────────────────────
+tmp/
+temp/
+*.tmp
+
+# ── TypeScript Build Output ───────────────────────────────────────────────────
+*.js.map
+*.d.ts.map
