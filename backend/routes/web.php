@@ -4,9 +4,10 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\CafeRegistrationController;
 use App\Http\Controllers\Tenant\CafeSettingsController;
+use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\MenuItemController;
 use App\Http\Controllers\Tenant\StaffController;
 use App\Services\TenantContext;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -42,6 +43,17 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     Route::post('/staff', [StaffController::class, 'store'])->name('tenant.staff.store');
     Route::put('/staff/{staff_id}', [StaffController::class, 'update'])->name('tenant.staff.update');
     Route::delete('/staff/{staff_id}', [StaffController::class, 'destroy'])->name('tenant.staff.destroy');
+
+    Route::get('/categories', [CategoryController::class, 'index'])->name('tenant.categories.index');
+    Route::post('/categories', [CategoryController::class, 'store'])->name('tenant.categories.store');
+    Route::put('/categories/{category_id}', [CategoryController::class, 'update'])->name('tenant.categories.update');
+    Route::delete('/categories/{category_id}', [CategoryController::class, 'destroy'])->name('tenant.categories.destroy');
+
+    Route::get('/menu-items', [MenuItemController::class, 'index'])->name('tenant.menu_items.index');
+    Route::post('/menu-items', [MenuItemController::class, 'store'])->name('tenant.menu_items.store');
+    Route::put('/menu-items/{item_id}', [MenuItemController::class, 'update'])->name('tenant.menu_items.update');
+    Route::patch('/menu-items/{item_id}/toggle-availability', [MenuItemController::class, 'toggleAvailability'])->name('tenant.menu_items.toggle_availability');
+    Route::delete('/menu-items/{item_id}', [MenuItemController::class, 'destroy'])->name('tenant.menu_items.destroy');
 });
 
 Route::middleware(['auth:web'])->prefix('admin')->group(function () {
