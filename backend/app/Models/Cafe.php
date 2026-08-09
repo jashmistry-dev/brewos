@@ -41,4 +41,9 @@ class Cafe extends Model
                     ->withPivot(['role_id', 'branch_id', 'status'])
                     ->withTimestamps();
     }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
 }

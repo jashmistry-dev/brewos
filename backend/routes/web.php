@@ -1,12 +1,16 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Public\PublicOrderController;
 use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\CafeRegistrationController;
 use App\Http\Controllers\Tenant\CafeSettingsController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\KitchenDisplayController;
 use App\Http\Controllers\Tenant\MenuItemController;
+use App\Http\Controllers\Tenant\OrderController;
 use App\Http\Controllers\Tenant\StaffController;
+use App\Http\Controllers\Tenant\TableController;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\Route;
 
@@ -18,6 +22,12 @@ Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('l
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth:web')->name('logout');
 
 Route::post('/register-cafe', [CafeRegistrationController::class, 'store'])->name('tenant.register');
+
+// Public QR Ordering Endpoints (Unauthenticated, Rate-limited 60 requests/min/IP)
+Route::middleware(['throttle:60,1'])->prefix('public/qr')->group(function () {
+    Route::get('/{qr_token}/menu', [PublicOrderController::class, 'menu'])->name('public.qr.menu');
+    Route::post('/{qr_token}/orders', [PublicOrderController::class, 'store'])->name('public.qr.orders');
+});
 
 Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(function () {
     Route::get('/dashboard', function () {
@@ -54,6 +64,18 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     Route::put('/menu-items/{item_id}', [MenuItemController::class, 'update'])->name('tenant.menu_items.update');
     Route::patch('/menu-items/{item_id}/toggle-availability', [MenuItemController::class, 'toggleAvailability'])->name('tenant.menu_items.toggle_availability');
     Route::delete('/menu-items/{item_id}', [MenuItemController::class, 'destroy'])->name('tenant.menu_items.destroy');
+
+    Route::get('/tables', [TableController::class, 'index'])->name('tenant.tables.index');
+    Route::post('/tables', [TableController::class, 'store'])->name('tenant.tables.store');
+    Route::put('/tables/{table_id}', [TableController::class, 'update'])->name('tenant.tables.update');
+    Route::post('/tables/{table_id}/regenerate-qr', [TableController::class, 'regenerateQrToken'])->name('tenant.tables.regenerate_qr');
+    Route::delete('/tables/{table_id}', [TableController::class, 'destroy'])->name('tenant.tables.destroy');
+
+    Route::get('/orders', [OrderController::class, 'index'])->name('tenant.orders.index');
+    Route::get('/orders/{order_id}', [OrderController::class, 'show'])->name('tenant.orders.show');
+    Route::patch('/orders/{order_id}/status', [OrderController::class, 'updateStatus'])->name('tenant.orders.update_status');
+
+    Route::get('/kitchen-display', [KitchenDisplayController::class, 'index'])->name('tenant.kitchen_display.index');
 });
 
 Route::middleware(['auth:web'])->prefix('admin')->group(function () {
