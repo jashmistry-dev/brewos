@@ -20,7 +20,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, title }) => {
     };
 
     const hasPermission = (permission: string) => {
-        return auth.permissions.includes(permission) || auth.roles.includes('cafe-owner');
+        if (auth.roles.includes('cafe-owner')) return true;
+        if (auth.permissions.includes(permission)) return true;
+        if (permission === 'branch.manage') return auth.permissions.includes('branch.view');
+        if (permission === 'staff.manage') return auth.permissions.includes('staff.view');
+        if (permission === 'menu.manage') return auth.permissions.includes('menu.view') || auth.permissions.includes('category.view');
+        if (permission === 'settings.manage') return auth.permissions.includes('cafe.view') || auth.permissions.includes('cafe.settings.update');
+        return false;
     };
 
     const navigation = [

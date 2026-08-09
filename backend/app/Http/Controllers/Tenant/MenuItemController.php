@@ -5,28 +5,51 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreMenuItemRequest;
 use App\Http\Requests\Tenant\UpdateMenuItemRequest;
+use App\Models\Category;
 use App\Models\MenuItem;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class MenuItemController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|InertiaResponse
     {
         Gate::authorize('permission', 'menu.view');
 
         $query = MenuItem::with('category')->orderBy('sort_order', 'asc');
 
-        if ($request->has('category_id')) {
+        if ($request->has('category_id') && $request->query('category_id') !== null && $request->query('category_id') !== '') {
             $query->where('category_id', $request->query('category_id'));
         }
 
         $items = $query->get();
 
-        return response()->json([
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'menu_items' => $items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'category_id' => $item->category_id,
+                    'category_name' => $item->category?->name,
+                    'name' => $item->name,
+                    'description' => $item->description,
+                    'price' => (float) $item->price,
+                    'image' => $item->image,
+                    'status' => $item->status,
+                    'is_available' => $item->isAvailable(),
+                    'sort_order' => $item->sort_order,
+                ]),
+            ]);
+        }
+
+        $categories = Category::orderBy('sort_order', 'asc')->get();
+
+        return Inertia::render('Tenant/MenuItems', [
             'menu_items' => $items->map(fn ($item) => [
                 'id' => $item->id,
                 'category_id' => $item->category_id,
@@ -39,10 +62,15 @@ class MenuItemController extends Controller
                 'is_available' => $item->isAvailable(),
                 'sort_order' => $item->sort_order,
             ]),
+            'categories' => $categories->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+            ]),
+            'selected_category_id' => $request->query('category_id') ? (int) $request->query('category_id') : null,
         ]);
     }
 
-    public function store(StoreMenuItemRequest $request): JsonResponse
+    public function store(StoreMenuItemRequest $request): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'menu.create');
 
@@ -66,23 +94,27 @@ class MenuItemController extends Controller
 
         $item->load('category');
 
-        return response()->json([
-            'message' => 'Menu item created successfully.',
-            'menu_item' => [
-                'id' => $item->id,
-                'category_id' => $item->category_id,
-                'category_name' => $item->category?->name,
-                'name' => $item->name,
-                'price' => (float) $item->price,
-                'image' => $item->image,
-                'status' => $item->status,
-                'is_available' => $item->isAvailable(),
-                'sort_order' => $item->sort_order,
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Menu item created successfully.',
+                'menu_item' => [
+                    'id' => $item->id,
+                    'category_id' => $item->category_id,
+                    'category_name' => $item->category?->name,
+                    'name' => $item->name,
+                    'price' => (float) $item->price,
+                    'image' => $item->image,
+                    'status' => $item->status,
+                    'is_available' => $item->isAvailable(),
+                    'sort_order' => $item->sort_order,
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Menu item created successfully.');
     }
 
-    public function update(UpdateMenuItemRequest $request, string $cafe_slug, int|string $item_id): JsonResponse
+    public function update(UpdateMenuItemRequest $request, string $cafe_slug, int|string $item_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'menu.update');
 
@@ -101,23 +133,27 @@ class MenuItemController extends Controller
         $item->update($validated);
         $item->load('category');
 
-        return response()->json([
-            'message' => 'Menu item updated successfully.',
-            'menu_item' => [
-                'id' => $item->id,
-                'category_id' => $item->category_id,
-                'category_name' => $item->category?->name,
-                'name' => $item->name,
-                'price' => (float) $item->price,
-                'image' => $item->image,
-                'status' => $item->status,
-                'is_available' => $item->isAvailable(),
-                'sort_order' => $item->sort_order,
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Menu item updated successfully.',
+                'menu_item' => [
+                    'id' => $item->id,
+                    'category_id' => $item->category_id,
+                    'category_name' => $item->category?->name,
+                    'name' => $item->name,
+                    'price' => (float) $item->price,
+                    'image' => $item->image,
+                    'status' => $item->status,
+                    'is_available' => $item->isAvailable(),
+                    'sort_order' => $item->sort_order,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Menu item updated successfully.');
     }
 
-    public function toggleAvailability(string $cafe_slug, int|string $item_id): JsonResponse
+    public function toggleAvailability(string $cafe_slug, int|string $item_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'menu.update');
 
@@ -125,22 +161,30 @@ class MenuItemController extends Controller
         $newStatus = $item->isAvailable() ? 'unavailable' : 'active';
         $item->update(['status' => $newStatus]);
 
-        return response()->json([
-            'message' => 'Menu item availability toggled.',
-            'status' => $item->status,
-            'is_available' => $item->isAvailable(),
-        ]);
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Menu item availability toggled.',
+                'status' => $item->status,
+                'is_available' => $item->isAvailable(),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Menu item availability toggled.');
     }
 
-    public function destroy(string $cafe_slug, int|string $item_id): JsonResponse
+    public function destroy(string $cafe_slug, int|string $item_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'menu.delete');
 
         $item = MenuItem::findOrFail($item_id);
         $item->delete();
 
-        return response()->json([
-            'message' => 'Menu item deleted successfully.',
-        ]);
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Menu item deleted successfully.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Menu item deleted successfully.');
     }
 }

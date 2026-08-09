@@ -7,18 +7,33 @@ use App\Http\Requests\Tenant\StoreCategoryRequest;
 use App\Http\Requests\Tenant\UpdateCategoryRequest;
 use App\Models\Category;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class CategoryController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(): JsonResponse|InertiaResponse
     {
         Gate::authorize('permission', 'category.view');
 
         $categories = Category::orderBy('sort_order', 'asc')->get();
 
-        return response()->json([
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'categories' => $categories->map(fn ($c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'description' => $c->description,
+                    'sort_order' => $c->sort_order,
+                    'status' => $c->status,
+                ]),
+            ]);
+        }
+
+        return Inertia::render('Tenant/Categories', [
             'categories' => $categories->map(fn ($c) => [
                 'id' => $c->id,
                 'name' => $c->name,
@@ -29,7 +44,7 @@ class CategoryController extends Controller
         ]);
     }
 
-    public function store(StoreCategoryRequest $request): JsonResponse
+    public function store(StoreCategoryRequest $request): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'category.create');
 
@@ -40,46 +55,58 @@ class CategoryController extends Controller
             'status' => $request->validated('status', 'active'),
         ]);
 
-        return response()->json([
-            'message' => 'Category created successfully.',
-            'category' => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'description' => $category->description,
-                'sort_order' => $category->sort_order,
-                'status' => $category->status,
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Category created successfully.',
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'description' => $category->description,
+                    'sort_order' => $category->sort_order,
+                    'status' => $category->status,
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Category created successfully.');
     }
 
-    public function update(UpdateCategoryRequest $request, string $cafe_slug, int|string $category_id): JsonResponse
+    public function update(UpdateCategoryRequest $request, string $cafe_slug, int|string $category_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'category.update');
 
         $category = Category::findOrFail($category_id);
         $category->update($request->validated());
 
-        return response()->json([
-            'message' => 'Category updated successfully.',
-            'category' => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'description' => $category->description,
-                'sort_order' => $category->sort_order,
-                'status' => $category->status,
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Category updated successfully.',
+                'category' => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'description' => $category->description,
+                    'sort_order' => $category->sort_order,
+                    'status' => $category->status,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Category updated successfully.');
     }
 
-    public function destroy(string $cafe_slug, int|string $category_id): JsonResponse
+    public function destroy(string $cafe_slug, int|string $category_id): JsonResponse|RedirectResponse
     {
         Gate::authorize('permission', 'category.delete');
 
         $category = Category::findOrFail($category_id);
         $category->delete();
 
-        return response()->json([
-            'message' => 'Category deleted successfully.',
-        ]);
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Category deleted successfully.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Category deleted successfully.');
     }
 }
