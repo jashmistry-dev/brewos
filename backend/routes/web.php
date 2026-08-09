@@ -6,9 +6,12 @@ use App\Http\Controllers\Tenant\BranchController;
 use App\Http\Controllers\Tenant\CafeRegistrationController;
 use App\Http\Controllers\Tenant\CafeSettingsController;
 use App\Http\Controllers\Tenant\CategoryController;
+use App\Http\Controllers\Tenant\InvoiceController;
+use App\Http\Controllers\Tenant\InvoiceSettingController;
 use App\Http\Controllers\Tenant\KitchenDisplayController;
 use App\Http\Controllers\Tenant\MenuItemController;
 use App\Http\Controllers\Tenant\OrderController;
+use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\StaffController;
 use App\Http\Controllers\Tenant\TableController;
 use App\Services\TenantContext;
@@ -76,6 +79,20 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     Route::patch('/orders/{order_id}/status', [OrderController::class, 'updateStatus'])->name('tenant.orders.update_status');
 
     Route::get('/kitchen-display', [KitchenDisplayController::class, 'index'])->name('tenant.kitchen_display.index');
+
+    // Phase 2D — Payments
+    Route::get('/payments', [PaymentController::class, 'index'])->name('tenant.payments.index');
+    Route::post('/payments', [PaymentController::class, 'store'])->name('tenant.payments.store');
+
+    // Phase 2D — Invoices
+    Route::get('/invoices', [InvoiceController::class, 'index'])->name('tenant.invoices.index');
+    Route::post('/invoices', [InvoiceController::class, 'store'])->name('tenant.invoices.store');
+    Route::get('/invoices/{invoice_id}', [InvoiceController::class, 'show'])->name('tenant.invoices.show');
+    Route::get('/invoices/{invoice_id}/download', [InvoiceController::class, 'download'])->name('tenant.invoices.download');
+
+    // Phase 2D — Invoice Settings
+    Route::get('/invoice-settings', [InvoiceSettingController::class, 'show'])->name('tenant.invoice_settings.show');
+    Route::put('/invoice-settings', [InvoiceSettingController::class, 'update'])->name('tenant.invoice_settings.update');
 });
 
 Route::middleware(['auth:web'])->prefix('admin')->group(function () {
