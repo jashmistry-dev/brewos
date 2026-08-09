@@ -1,0 +1,154 @@
+<?php
+
+namespace App\Http\Controllers\Tenant;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Tenant\StoreStaffRequest;
+use App\Http\Requests\Tenant\UpdateStaffRequest;
+use App\Models\CafeUser;
+use App\Models\User;
+use App\Services\TenantContext;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
+use Symfony\Component\HttpFoundation\Response;
+
+class StaffController extends Controller
+{
+    public function index(): JsonResponse
+    {
+        Gate::authorize('permission', 'staff.view');
+
+        $cafeId = app(TenantContext::class)->getCafeId();
+
+        $staffMembers = CafeUser::where('cafe_id', $cafeId)
+            ->with(['user', 'role', 'branch'])
+            ->get();
+
+        return response()->json([
+            'staff' => $staffMembers->map(fn ($cu) => [
+                'id' => $cu->id,
+                'user_id' => $cu->user_id,
+                'name' => $cu->user?->name,
+                'email' => $cu->user?->email,
+                'role' => [
+                    'id' => $cu->role?->id,
+                    'name' => $cu->role?->name,
+                    'slug' => $cu->role?->slug,
+                ],
+                'branch' => $cu->branch ? [
+                    'id' => $cu->branch->id,
+                    'name' => $cu->branch->name,
+                    'slug' => $cu->branch->slug,
+                ] : null,
+                'status' => $cu->status,
+            ]),
+        ]);
+    }
+
+    public function store(StoreStaffRequest $request): JsonResponse
+    {
+        Gate::authorize('permission', 'staff.create');
+
+        $cafeId = app(TenantContext::class)->getCafeId();
+        $validated = $request->validated();
+
+        $membership = DB::transaction(function () use ($validated, $cafeId) {
+            $user = User::firstOrCreate(
+                ['email' => $validated['email']],
+                [
+                    'name' => $validated['name'],
+                    'password' => Hash::make($validated['password']),
+                    'status' => 'active',
+                ]
+            );
+
+            return CafeUser::create([
+                'cafe_id' => $cafeId,
+                'user_id' => $user->id,
+                'role_id' => $validated['role_id'],
+                'branch_id' => $validated['branch_id'] ?? null,
+                'status' => $validated['status'] ?? 'active',
+            ]);
+        });
+
+        $membership->load(['user', 'role', 'branch']);
+
+        return response()->json([
+            'message' => 'Staff member created successfully.',
+            'staff' => [
+                'id' => $membership->id,
+                'user_id' => $membership->user_id,
+                'name' => $membership->user?->name,
+                'email' => $membership->user?->email,
+                'role_id' => $membership->role_id,
+                'branch_id' => $membership->branch_id,
+                'status' => $membership->status,
+            ],
+        ], Response::HTTP_CREATED);
+    }
+
+    public function update(UpdateStaffRequest $request, string $cafe_slug, int|string $staff_id): JsonResponse
+    {
+        Gate::authorize('permission', 'staff.update');
+
+        $cafeId = app(TenantContext::class)->getCafeId();
+
+        $membership = CafeUser::where('cafe_id', $cafeId)
+            ->where('id', $staff_id)
+            ->firstOrFail();
+
+        $validated = $request->validated();
+
+        DB::transaction(function () use ($membership, $validated) {
+            if (isset($validated['name']) || isset($validated['email'])) {
+                $userData = array_filter([
+                    'name' => $validated['name'] ?? null,
+                    'email' => $validated['email'] ?? null,
+                ]);
+                $membership->user->update($userData);
+            }
+
+            $membershipData = array_filter([
+                'role_id' => $validated['role_id'] ?? null,
+                'branch_id' => array_key_exists('branch_id', $validated) ? $validated['branch_id'] : null,
+                'status' => $validated['status'] ?? null,
+            ], fn ($v) => $v !== null || array_key_exists('branch_id', $validated));
+
+            $membership->update($membershipData);
+        });
+
+        $membership->load(['user', 'role', 'branch']);
+
+        return response()->json([
+            'message' => 'Staff member updated successfully.',
+            'staff' => [
+                'id' => $membership->id,
+                'user_id' => $membership->user_id,
+                'name' => $membership->user?->name,
+                'email' => $membership->user?->email,
+                'role_id' => $membership->role_id,
+                'branch_id' => $membership->branch_id,
+                'status' => $membership->status,
+            ],
+        ]);
+    }
+
+    public function destroy(string $cafe_slug, int|string $staff_id): JsonResponse
+    {
+        Gate::authorize('permission', 'staff.delete');
+
+        $cafeId = app(TenantContext::class)->getCafeId();
+
+        $membership = CafeUser::where('cafe_id', $cafeId)
+            ->where('id', $staff_id)
+            ->firstOrFail();
+
+        $membership->update(['status' => 'inactive']);
+
+        return response()->json([
+            'message' => 'Staff member access revoked successfully.',
+        ]);
+    }
+}

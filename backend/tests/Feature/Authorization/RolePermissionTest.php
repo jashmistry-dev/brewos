@@ -112,10 +112,7 @@ class RolePermissionTest extends TestCase
         $response = $this->getJson('/cafes/cafe-gamma/staff');
 
         $response->assertStatus(200)
-            ->assertJson([
-                'message' => 'Staff list loaded.',
-                'cafe_id' => $this->cafe->id,
-            ]);
+            ->assertJsonStructure(['staff']);
     }
 
     public function test_user_without_permission_is_denied(): void
