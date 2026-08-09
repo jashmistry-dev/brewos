@@ -81,4 +81,9 @@ class User extends Authenticatable
 
         return $membership->role->permissions->contains('slug', $permissionSlug);
     }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class);
+    }
 }

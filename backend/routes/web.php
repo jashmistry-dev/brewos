@@ -1,5 +1,11 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminCafeController;
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\PlanController;
+use App\Http\Controllers\Admin\PlanFeatureController;
+use App\Http\Controllers\Admin\SubscriptionController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Public\PublicOrderController;
 use App\Http\Controllers\Tenant\BranchController;
@@ -95,15 +101,34 @@ Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(fu
     Route::put('/invoice-settings', [InvoiceSettingController::class, 'update'])->name('tenant.invoice_settings.update');
 });
 
-Route::middleware(['auth:web'])->prefix('admin')->group(function () {
-    Route::get('/dashboard', function () {
-        if (! auth()->user()->isSuperAdmin()) {
-            abort(403, 'Super Admin access required.');
-        }
+Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin')->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
 
-        return response()->json([
-            'message' => 'Super Admin platform dashboard loaded.',
-            'user' => auth()->user()->only('id', 'name', 'email'),
-        ]);
-    })->name('admin.dashboard');
+    // Cafe Management
+    Route::get('/cafes', [AdminCafeController::class, 'index'])->name('admin.cafes.index');
+    Route::get('/cafes/{cafe_id}', [AdminCafeController::class, 'show'])->name('admin.cafes.show');
+    Route::patch('/cafes/{cafe_id}/status', [AdminCafeController::class, 'updateStatus'])->name('admin.cafes.update_status');
+    Route::delete('/cafes/{cafe_id}', [AdminCafeController::class, 'destroy'])->name('admin.cafes.destroy');
+
+    // Plan Management
+    Route::get('/plans', [PlanController::class, 'index'])->name('admin.plans.index');
+    Route::post('/plans', [PlanController::class, 'store'])->name('admin.plans.store');
+    Route::get('/plans/{plan_id}', [PlanController::class, 'show'])->name('admin.plans.show');
+    Route::put('/plans/{plan_id}', [PlanController::class, 'update'])->name('admin.plans.update');
+    Route::delete('/plans/{plan_id}', [PlanController::class, 'destroy'])->name('admin.plans.destroy');
+
+    // Plan Feature Management
+    Route::get('/plans/{plan_id}/features', [PlanFeatureController::class, 'index'])->name('admin.plan_features.index');
+    Route::post('/plans/{plan_id}/features', [PlanFeatureController::class, 'store'])->name('admin.plan_features.store');
+    Route::delete('/plans/{plan_id}/features/{feature_id}', [PlanFeatureController::class, 'destroy'])->name('admin.plan_features.destroy');
+
+    // Subscription Management
+    Route::get('/subscriptions', [SubscriptionController::class, 'index'])->name('admin.subscriptions.index');
+    Route::get('/subscriptions/{subscription_id}', [SubscriptionController::class, 'show'])->name('admin.subscriptions.show');
+    Route::post('/subscriptions/{subscription_id}/cancel', [SubscriptionController::class, 'cancel'])->name('admin.subscriptions.cancel');
+
+    // Audit Log Viewer
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('admin.audit_logs.index');
+    Route::get('/audit-logs/{audit_log_id}', [AuditLogController::class, 'show'])->name('admin.audit_logs.show');
 });
