@@ -13,8 +13,17 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
+use App\Models\Cafe;
+use App\Services\EntitlementService;
+use App\Services\TenantContext;
+use Illuminate\Support\Facades\DB;
+
 class BranchController extends Controller
 {
+    public function __construct(
+        protected EntitlementService $entitlementService
+    ) {}
+
     public function index(): JsonResponse|InertiaResponse
     {
         Gate::authorize('permission', 'branch.view');
@@ -48,13 +57,22 @@ class BranchController extends Controller
     {
         Gate::authorize('permission', 'branch.create');
 
-        $branch = Branch::create([
-            'name' => $request->validated('name'),
-            'slug' => $request->validated('slug'),
-            'address' => $request->validated('address'),
-            'phone' => $request->validated('phone'),
-            'status' => $request->validated('status', 'active'),
-        ]);
+        $cafeId = app(TenantContext::class)->getCafeId();
+
+        $this->entitlementService->checkBranchLimit($cafeId);
+
+        $branch = DB::transaction(function () use ($request, $cafeId) {
+            // Lock cafe record to prevent race conditions during concurrent limit checks
+            Cafe::where('id', $cafeId)->lockForUpdate()->first();
+
+            return Branch::create([
+                'name'    => $request->validated('name'),
+                'slug'    => $request->validated('slug'),
+                'address' => $request->validated('address'),
+                'phone'   => $request->validated('phone'),
+                'status'  => $request->validated('status', 'active'),
+            ]);
+        });
 
         if ($request->wantsJson() && ! $request->header('X-Inertia')) {
             return response()->json([

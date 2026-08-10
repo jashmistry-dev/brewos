@@ -19,8 +19,15 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
+use App\Models\Cafe;
+use App\Services\EntitlementService;
+
 class StaffController extends Controller
 {
+    public function __construct(
+        protected EntitlementService $entitlementService
+    ) {}
+
     public function index(): JsonResponse|InertiaResponse
     {
         Gate::authorize('permission', 'staff.view');
@@ -92,7 +99,12 @@ class StaffController extends Controller
         $cafeId = app(TenantContext::class)->getCafeId();
         $validated = $request->validated();
 
+        $this->entitlementService->checkStaffLimit($cafeId);
+
         $membership = DB::transaction(function () use ($validated, $cafeId) {
+            // Lock cafe record to prevent race conditions during limit validation
+            Cafe::where('id', $cafeId)->lockForUpdate()->first();
+
             $user = User::firstOrCreate(
                 ['email' => $validated['email']],
                 [

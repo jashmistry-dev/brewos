@@ -137,10 +137,17 @@ Architecture is locked per the ADRs in `docs/07-decisions/`.
 ### 🔲 Phase 3B — Subscription Billing
 *Planned*
 
-- [ ] SaaS plan management
-- [ ] Subscription lifecycle (trial, active, expired)
-- [ ] Plan limit enforcement
-- [ ] Subscription billing integration
+- [x] SaaS plan management
+- [x] Subscription lifecycle (trial, active, expired)
+- [x] Plan limit enforcement
+- [x] Subscription billing integration
+
+---
+
+## Phase 8 — Production Hardening
+
+- [ ] Implement provider-specific webhook signature verification (Stripe `Stripe-Signature` HMAC secret verification and PayPal webhook validation)
+
 
 ---
 

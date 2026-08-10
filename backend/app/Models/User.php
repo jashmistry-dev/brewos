@@ -47,6 +47,11 @@ class User extends Authenticatable
                     ->withTimestamps();
     }
 
+    public function getIsSuperAdminAttribute(): bool
+    {
+        return $this->isSuperAdmin();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->cafeUsers()

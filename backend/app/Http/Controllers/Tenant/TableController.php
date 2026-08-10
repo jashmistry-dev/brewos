@@ -13,8 +13,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
+use App\Models\Cafe;
+use App\Services\EntitlementService;
+use Illuminate\Support\Facades\DB;
+
 class TableController extends Controller
 {
+    public function __construct(
+        protected EntitlementService $entitlementService
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
         Gate::authorize('permission', 'table.view');
@@ -53,13 +61,22 @@ class TableController extends Controller
     {
         Gate::authorize('permission', 'table.create');
 
-        $table = RestaurantTable::create([
-            'branch_id' => $request->validated('branch_id'),
-            'name' => $request->validated('name'),
-            'capacity' => $request->validated('capacity', 1),
-            'status' => $request->validated('status', 'available'),
-            'qr_token' => RestaurantTable::generateQrToken(),
-        ]);
+        $cafeId = app(TenantContext::class)->getCafeId();
+
+        $this->entitlementService->checkTableLimit($cafeId);
+
+        $table = DB::transaction(function () use ($request, $cafeId) {
+            // Lock cafe record to prevent race conditions during limit checks
+            Cafe::where('id', $cafeId)->lockForUpdate()->first();
+
+            return RestaurantTable::create([
+                'branch_id' => $request->validated('branch_id'),
+                'name'      => $request->validated('name'),
+                'capacity'  => $request->validated('capacity', 1),
+                'status'    => $request->validated('status', 'available'),
+                'qr_token'  => RestaurantTable::generateQrToken(),
+            ]);
+        });
 
         return response()->json([
             'message' => 'Table created successfully.',

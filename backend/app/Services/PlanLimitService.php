@@ -53,6 +53,16 @@ class PlanLimitService
         })->count();
     }
 
+    public function getCurrentBranchCount(int $cafeId): int
+    {
+        return \App\Models\Branch::where('cafe_id', $cafeId)->count();
+    }
+
+    public function getCurrentMenuItemCount(int $cafeId): int
+    {
+        return \App\Models\MenuItem::where('cafe_id', $cafeId)->count();
+    }
+
     public function hasReachedStaffLimit(int $cafeId): bool
     {
         $limit = $this->getFeatureLimit($cafeId, 'staff_limit');
@@ -73,5 +83,27 @@ class PlanLimitService
         }
 
         return $this->getCurrentTableCount($cafeId) >= $limit;
+    }
+
+    public function hasReachedBranchLimit(int $cafeId): bool
+    {
+        $limit = $this->getFeatureLimit($cafeId, 'branch_limit');
+
+        if ($limit === null) {
+            return false;
+        }
+
+        return $this->getCurrentBranchCount($cafeId) >= $limit;
+    }
+
+    public function hasReachedMenuItemLimit(int $cafeId): bool
+    {
+        $limit = $this->getFeatureLimit($cafeId, 'menu_item_limit');
+
+        if ($limit === null) {
+            return false;
+        }
+
+        return $this->getCurrentMenuItemCount($cafeId) >= $limit;
     }
 }

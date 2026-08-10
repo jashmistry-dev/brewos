@@ -16,8 +16,17 @@ use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
+use App\Models\Cafe;
+use App\Services\EntitlementService;
+use App\Services\TenantContext;
+use Illuminate\Support\Facades\DB;
+
 class MenuItemController extends Controller
 {
+    public function __construct(
+        protected EntitlementService $entitlementService
+    ) {}
+
     public function index(Request $request): JsonResponse|InertiaResponse
     {
         Gate::authorize('permission', 'menu.view');
@@ -74,6 +83,8 @@ class MenuItemController extends Controller
     {
         Gate::authorize('permission', 'menu.create');
 
+        $cafeId = app(TenantContext::class)->getCafeId();
+
         $validated = $request->validated();
         $imagePath = null;
 
@@ -82,15 +93,22 @@ class MenuItemController extends Controller
             $imagePath = Storage::url($path);
         }
 
-        $item = MenuItem::create([
-            'category_id' => $validated['category_id'],
-            'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'price' => $validated['price'],
-            'image' => $imagePath,
-            'status' => $validated['status'] ?? 'active',
-            'sort_order' => $validated['sort_order'] ?? 0,
-        ]);
+        $this->entitlementService->checkMenuItemLimit($cafeId);
+
+        $item = DB::transaction(function () use ($validated, $imagePath, $cafeId) {
+            // Lock cafe record to prevent race conditions during limit validation
+            Cafe::where('id', $cafeId)->lockForUpdate()->first();
+
+            return MenuItem::create([
+                'category_id' => $validated['category_id'],
+                'name'        => $validated['name'],
+                'description' => $validated['description'] ?? null,
+                'price'       => $validated['price'],
+                'image'       => $imagePath,
+                'status'      => $validated['status'] ?? 'active',
+                'sort_order'  => $validated['sort_order'] ?? 0,
+            ]);
+        });
 
         $item->load('category');
 
