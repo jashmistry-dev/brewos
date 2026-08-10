@@ -27,6 +27,15 @@ class Cafe extends Model
         'email',
         'phone',
         'status',
+        'notes',
+    ];
+
+    /**
+     * The attributes that should be hidden for serialization.
+     * Keeps internal Super Admin notes completely hidden from default tenant JSON responses.
+     */
+    protected $hidden = [
+        'notes',
     ];
 
     /**

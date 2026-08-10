@@ -10,33 +10,51 @@ use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+
 class PlanController extends Controller
 {
     public function __construct(
         protected AuditLogger $auditLogger
     ) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse|InertiaResponse
     {
-        $plans = Plan::withCount(['features', 'subscriptions'])->orderBy('id', 'asc')->get();
+        $plans = Plan::with(['features'])->withCount(['features', 'subscriptions'])->orderBy('id', 'asc')->get();
 
-        return response()->json([
-            'plans' => $plans->map(fn ($plan) => [
-                'id'                 => $plan->id,
-                'name'               => $plan->name,
-                'slug'               => $plan->slug,
-                'description'        => $plan->description,
-                'price'              => (float) $plan->price,
-                'billing_interval'   => $plan->billing_interval,
-                'status'             => $plan->status,
-                'features_count'     => $plan->features_count,
-                'subscriptions_count'=> $plan->subscriptions_count,
-                'created_at'         => $plan->created_at?->toIso8601String(),
+        $mappedPlans = $plans->map(fn ($plan) => [
+            'id'                 => $plan->id,
+            'name'               => $plan->name,
+            'slug'               => $plan->slug,
+            'description'        => $plan->description,
+            'price'              => (float) $plan->price,
+            'billing_interval'   => $plan->billing_interval,
+            'status'             => $plan->status,
+            'features_count'     => $plan->features_count,
+            'subscriptions_count'=> $plan->subscriptions_count,
+            'features'           => $plan->features->map(fn ($f) => [
+                'id'          => $f->id,
+                'feature_key' => $f->feature_key,
+                'value'       => $f->value,
             ]),
+            'created_at'         => $plan->created_at?->toIso8601String(),
+        ]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'plans' => $mappedPlans,
+            ]);
+        }
+
+        return Inertia::render('Admin/Plans', [
+            'plans' => $mappedPlans,
         ]);
     }
 
-    public function store(StorePlanRequest $request): JsonResponse
+    public function store(StorePlanRequest $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validated();
 
@@ -58,47 +76,55 @@ class PlanController extends Controller
             newValues: $plan->only(['name', 'slug', 'price', 'billing_interval', 'status'])
         );
 
-        return response()->json([
-            'message' => 'Plan created successfully.',
-            'plan'    => [
-                'id'               => $plan->id,
-                'name'             => $plan->name,
-                'slug'             => $plan->slug,
-                'description'      => $plan->description,
-                'price'            => (float) $plan->price,
-                'billing_interval' => $plan->billing_interval,
-                'status'           => $plan->status,
-                'created_at'       => $plan->created_at?->toIso8601String(),
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Plan created successfully.',
+                'plan'    => [
+                    'id'               => $plan->id,
+                    'name'             => $plan->name,
+                    'slug'             => $plan->slug,
+                    'description'      => $plan->description,
+                    'price'            => (float) $plan->price,
+                    'billing_interval' => $plan->billing_interval,
+                    'status'           => $plan->status,
+                    'created_at'       => $plan->created_at?->toIso8601String(),
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Plan created successfully.');
     }
 
-    public function show(int|string $plan_id): JsonResponse
+    public function show(int|string $plan_id, Request $request): JsonResponse|RedirectResponse
     {
         $plan = Plan::with(['features'])->withCount(['subscriptions'])->findOrFail($plan_id);
 
-        return response()->json([
-            'plan' => [
-                'id'                 => $plan->id,
-                'name'               => $plan->name,
-                'slug'               => $plan->slug,
-                'description'        => $plan->description,
-                'price'              => (float) $plan->price,
-                'billing_interval'   => $plan->billing_interval,
-                'status'             => $plan->status,
-                'subscriptions_count'=> $plan->subscriptions_count,
-                'features'           => $plan->features->map(fn ($f) => [
-                    'id'          => $f->id,
-                    'feature_key' => $f->feature_key,
-                    'value'       => $f->value,
-                ]),
-                'created_at'         => $plan->created_at?->toIso8601String(),
-                'updated_at'         => $plan->updated_at?->toIso8601String(),
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'plan' => [
+                    'id'                 => $plan->id,
+                    'name'               => $plan->name,
+                    'slug'               => $plan->slug,
+                    'description'        => $plan->description,
+                    'price'              => (float) $plan->price,
+                    'billing_interval'   => $plan->billing_interval,
+                    'status'             => $plan->status,
+                    'subscriptions_count'=> $plan->subscriptions_count,
+                    'features'           => $plan->features->map(fn ($f) => [
+                        'id'          => $f->id,
+                        'feature_key' => $f->feature_key,
+                        'value'       => $f->value,
+                    ]),
+                    'created_at'         => $plan->created_at?->toIso8601String(),
+                    'updated_at'         => $plan->updated_at?->toIso8601String(),
+                ],
+            ]);
+        }
+
+        return redirect()->route('admin.plans.index');
     }
 
-    public function update(UpdatePlanRequest $request, int|string $plan_id): JsonResponse
+    public function update(UpdatePlanRequest $request, int|string $plan_id): JsonResponse|RedirectResponse
     {
         $plan = Plan::findOrFail($plan_id);
         $oldValues = $plan->only(['name', 'slug', 'description', 'price', 'billing_interval', 'status']);
@@ -116,32 +142,40 @@ class PlanController extends Controller
             newValues: $newValues
         );
 
-        return response()->json([
-            'message' => 'Plan updated successfully.',
-            'plan'    => [
-                'id'               => $plan->id,
-                'name'             => $plan->name,
-                'slug'             => $plan->slug,
-                'description'      => $plan->description,
-                'price'            => (float) $plan->price,
-                'billing_interval' => $plan->billing_interval,
-                'status'           => $plan->status,
-                'updated_at'       => $plan->updated_at?->toIso8601String(),
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Plan updated successfully.',
+                'plan'    => [
+                    'id'               => $plan->id,
+                    'name'             => $plan->name,
+                    'slug'             => $plan->slug,
+                    'description'      => $plan->description,
+                    'price'            => (float) $plan->price,
+                    'billing_interval' => $plan->billing_interval,
+                    'status'           => $plan->status,
+                    'updated_at'       => $plan->updated_at?->toIso8601String(),
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Plan updated successfully.');
     }
 
-    public function destroy(int|string $plan_id): JsonResponse
+    public function destroy(int|string $plan_id, Request $request): JsonResponse|RedirectResponse
     {
         $plan = Plan::withCount('subscriptions')->findOrFail($plan_id);
 
         if ($plan->subscriptions_count > 0) {
-            return response()->json([
-                'message' => 'Cannot delete plan with active or past subscriptions. Disable the plan instead.',
-                'errors'  => [
-                    'plan' => ['Plan is associated with ' . $plan->subscriptions_count . ' subscription(s).'],
-                ],
-            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+                return response()->json([
+                    'message' => 'Cannot delete plan with active or past subscriptions. Disable the plan instead.',
+                    'errors'  => [
+                        'plan' => ['Plan is associated with ' . $plan->subscriptions_count . ' subscription(s).'],
+                    ],
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            return redirect()->back()->withErrors(['plan' => 'Cannot delete plan with active or past subscriptions. Disable the plan instead.']);
         }
 
         $oldValues = $plan->only(['name', 'slug', 'status']);
@@ -157,8 +191,12 @@ class PlanController extends Controller
 
         $plan->delete();
 
-        return response()->json([
-            'message' => 'Plan deleted successfully.',
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Plan deleted successfully.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Plan deleted successfully.');
     }
 }

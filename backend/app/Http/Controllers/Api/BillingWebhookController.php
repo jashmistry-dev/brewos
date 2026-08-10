@@ -12,15 +12,26 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+use App\Services\WebhookSignatureValidator;
+
 class BillingWebhookController extends Controller
 {
     public function __construct(
         protected SubscriptionService $subscriptionService,
-        protected AuditLogger $auditLogger
+        protected AuditLogger $auditLogger,
+        protected WebhookSignatureValidator $signatureValidator
     ) {}
 
     public function handle(Request $request, string $provider): JsonResponse
     {
+        // 1. Verify Cryptographic Webhook Signature before reading payload
+        if (! $this->signatureValidator->verify($request, $provider)) {
+            return response()->json([
+                'message' => 'Invalid or unverified webhook cryptographic signature.',
+                'status'  => 'rejected',
+            ], 400);
+        }
+
         $payload = $request->all();
         $eventId = $request->header('X-Webhook-Event-Id') ?? $payload['event_id'] ?? $payload['id'] ?? null;
         $eventType = $request->header('X-Webhook-Event-Type') ?? $payload['event_type'] ?? $payload['type'] ?? 'subscription.updated';
@@ -67,11 +78,11 @@ class BillingWebhookController extends Controller
                 'processed_at' => now(),
             ]);
 
-            // Normalized Event Handling
-            switch ($eventType) {
+            switch (strtolower($eventType)) {
                 case 'subscription.renewed':
                 case 'payment.succeeded':
                 case 'invoice.payment_succeeded':
+                case 'payment.sale.completed':
                     if ($subscription) {
                         $subscription->update([
                             'status'   => 'active',

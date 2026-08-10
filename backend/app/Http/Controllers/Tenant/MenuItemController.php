@@ -88,9 +88,11 @@ class MenuItemController extends Controller
         $validated = $request->validated();
         $imagePath = null;
 
+        $uploadDisk = config('filesystems.uploads_disk', 'public');
+
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('menu-items', 'public');
-            $imagePath = Storage::url($path);
+            $path = $request->file('image')->store('menu-items', $uploadDisk);
+            $imagePath = Storage::disk($uploadDisk)->url($path);
         }
 
         $this->entitlementService->checkMenuItemLimit($cafeId);
@@ -138,14 +140,15 @@ class MenuItemController extends Controller
 
         $item = MenuItem::findOrFail($item_id);
         $validated = $request->validated();
+        $uploadDisk = config('filesystems.uploads_disk', 'public');
 
         if ($request->hasFile('image')) {
             if ($item->image) {
-                $oldPath = str_replace('/storage/', '', $item->image);
-                Storage::disk('public')->delete($oldPath);
+                $oldPath = str_replace('/storage/', '', parse_url($item->image, PHP_URL_PATH) ?? $item->image);
+                Storage::disk($uploadDisk)->delete($oldPath);
             }
-            $path = $request->file('image')->store('menu-items', 'public');
-            $validated['image'] = Storage::url($path);
+            $path = $request->file('image')->store('menu-items', $uploadDisk);
+            $validated['image'] = Storage::disk($uploadDisk)->url($path);
         }
 
         $item->update($validated);

@@ -167,6 +167,10 @@ Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin'
     Route::get('/cafes', [AdminCafeController::class, 'index'])->name('admin.cafes.index');
     Route::get('/cafes/{cafe_id}', [AdminCafeController::class, 'show'])->name('admin.cafes.show');
     Route::patch('/cafes/{cafe_id}/status', [AdminCafeController::class, 'updateStatus'])->name('admin.cafes.update_status');
+    Route::patch('/cafes/{cafe_id}/notes', [AdminCafeController::class, 'updateNotes'])->name('admin.cafes.update_notes');
+    Route::post('/cafes/{cafe_id}/subscription/extend', [AdminCafeController::class, 'extendSubscription'])->name('admin.cafes.subscription.extend');
+    Route::post('/cafes/{cafe_id}/subscription/change-plan', [AdminCafeController::class, 'changePlan'])->name('admin.cafes.subscription.change_plan');
+    Route::post('/cafes/{cafe_id}/subscription/reactivate', [AdminCafeController::class, 'reactivateSubscription'])->name('admin.cafes.subscription.reactivate');
     Route::delete('/cafes/{cafe_id}', [AdminCafeController::class, 'destroy'])->name('admin.cafes.destroy');
 
     // Plan Management

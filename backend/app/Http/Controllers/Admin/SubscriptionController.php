@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Subscription;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 class SubscriptionController extends Controller
 {
@@ -14,7 +17,7 @@ class SubscriptionController extends Controller
         protected AuditLogger $auditLogger
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|InertiaResponse
     {
         $query = Subscription::with(['cafe:id,name,slug', 'plan:id,name,slug,price']);
 
@@ -24,31 +27,40 @@ class SubscriptionController extends Controller
 
         $subscriptions = $query->orderBy('created_at', 'desc')->get();
 
-        return response()->json([
-            'subscriptions' => $subscriptions->map(fn ($sub) => [
-                'id'                       => $sub->id,
-                'cafe_id'                  => $sub->cafe_id,
-                'cafe_name'                => $sub->cafe?->name,
-                'cafe_slug'                => $sub->cafe?->slug,
-                'plan_id'                  => $sub->plan_id,
-                'plan_name'                => $sub->plan?->name,
-                'plan_price'               => (float) $sub->plan?->price,
-                'status'                   => $sub->status,
-                'starts_at'                => $sub->starts_at?->toIso8601String(),
-                'ends_at'                  => $sub->ends_at?->toIso8601String(),
-                'trial_ends_at'            => $sub->trial_ends_at?->toIso8601String(),
-                'provider'                 => $sub->provider,
-                'provider_subscription_id' => $sub->provider_subscription_id,
-                'created_at'               => $sub->created_at?->toIso8601String(),
-            ]),
+        $mappedSubscriptions = $subscriptions->map(fn ($sub) => [
+            'id'                       => $sub->id,
+            'cafe_id'                  => $sub->cafe_id,
+            'cafe_name'                => $sub->cafe?->name,
+            'cafe_slug'                => $sub->cafe?->slug,
+            'plan_id'                  => $sub->plan_id,
+            'plan_name'                => $sub->plan?->name,
+            'plan_price'               => (float) $sub->plan?->price,
+            'status'                   => $sub->status,
+            'starts_at'                => $sub->starts_at?->toIso8601String(),
+            'ends_at'                  => $sub->ends_at?->toIso8601String(),
+            'trial_ends_at'            => $sub->trial_ends_at?->toIso8601String(),
+            'provider'                 => $sub->provider,
+            'provider_subscription_id' => $sub->provider_subscription_id,
+            'created_at'               => $sub->created_at?->toIso8601String(),
+        ]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'subscriptions' => $mappedSubscriptions,
+            ]);
+        }
+
+        return Inertia::render('Admin/Subscriptions', [
+            'subscriptions' => $mappedSubscriptions,
+            'filters'       => $request->only(['status']),
         ]);
     }
 
-    public function show(int|string $subscription_id): JsonResponse
+    public function show(int|string $subscription_id, Request $request): JsonResponse|RedirectResponse
     {
         $sub = Subscription::with(['cafe', 'plan.features'])->findOrFail($subscription_id);
 
-        return response()->json([
+        $responseData = [
             'subscription' => [
                 'id'                       => $sub->id,
                 'cafe_id'                  => $sub->cafe_id,
@@ -74,10 +86,16 @@ class SubscriptionController extends Controller
                 'created_at'               => $sub->created_at?->toIso8601String(),
                 'updated_at'               => $sub->updated_at?->toIso8601String(),
             ],
-        ]);
+        ];
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($responseData);
+        }
+
+        return redirect()->route('admin.subscriptions.index');
     }
 
-    public function cancel(int|string $subscription_id): JsonResponse
+    public function cancel(int|string $subscription_id, Request $request): JsonResponse|RedirectResponse
     {
         $sub = Subscription::findOrFail($subscription_id);
         $oldStatus = $sub->status;
@@ -96,13 +114,17 @@ class SubscriptionController extends Controller
             newValues: ['status' => 'cancelled', 'ends_at' => $sub->ends_at?->toIso8601String()]
         );
 
-        return response()->json([
-            'message'      => 'Subscription cancelled successfully.',
-            'subscription' => [
-                'id'      => $sub->id,
-                'status'  => $sub->status,
-                'ends_at' => $sub->ends_at?->toIso8601String(),
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message'      => 'Subscription cancelled successfully.',
+                'subscription' => [
+                    'id'      => $sub->id,
+                    'status'  => $sub->status,
+                    'ends_at' => $sub->ends_at?->toIso8601String(),
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Subscription cancelled successfully.');
     }
 }

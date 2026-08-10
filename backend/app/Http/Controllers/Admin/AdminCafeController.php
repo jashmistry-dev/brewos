@@ -207,6 +207,7 @@ class AdminCafeController extends Controller
                 'email'              => $cafe->email,
                 'phone'              => $cafe->phone,
                 'status'             => $cafe->status,
+                'notes'              => $cafe->notes,
                 'timezone'           => $cafe->timezone,
                 'currency'           => $cafe->currency,
                 'branches_count'     => $cafe->branches_count,
@@ -242,6 +243,7 @@ class AdminCafeController extends Controller
                     'billing_interval' => $plan->billing_interval,
                 ] : null,
             ] : null,
+            'plans' => Plan::get(['id', 'name', 'slug', 'price', 'billing_interval']),
             'usage' => [
                 'branches' => ['current' => $cafe->branches_count, 'limit' => $branchLimit],
                 'staff'    => ['current' => $cafe->cafe_users_count, 'limit' => $staffLimit],
@@ -318,5 +320,127 @@ class AdminCafeController extends Controller
         }
 
         return redirect()->route('admin.cafes.index')->with('success', "Cafe '{$cafe->name}' deleted successfully.");
+    }
+
+    public function updateNotes(Request $request, int|string $cafe_id): JsonResponse|RedirectResponse
+    {
+        $request->validate([
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $cafe = Cafe::findOrFail($cafe_id);
+        $oldNotes = $cafe->notes;
+        $newNotes = $request->input('notes');
+
+        $cafe->update(['notes' => $newNotes]);
+
+        $this->auditLogger->log(
+            action: 'cafe.notes_updated',
+            entityType: 'cafe',
+            entityId: $cafe->id,
+            cafeId: $cafe->id,
+            oldValues: ['notes' => $oldNotes],
+            newValues: ['notes' => $newNotes]
+        );
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['message' => 'Internal admin notes updated successfully.', 'notes' => $newNotes]);
+        }
+
+        return redirect()->back()->with('success', 'Internal notes updated successfully.');
+    }
+
+    public function extendSubscription(Request $request, int|string $cafe_id): JsonResponse|RedirectResponse
+    {
+        $request->validate([
+            'new_ends_at' => ['required', 'date', 'after:now'],
+            'reason'      => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $cafe = Cafe::findOrFail($cafe_id);
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
+        $oldEndsAt = $sub->ends_at?->toIso8601String();
+        $newEndsAt = \Carbon\Carbon::parse($request->input('new_ends_at'));
+
+        $sub->update(['ends_at' => $newEndsAt]);
+
+        $this->auditLogger->log(
+            action: 'subscription.extended',
+            entityType: 'subscription',
+            entityId: $sub->id,
+            cafeId: $cafe->id,
+            oldValues: ['ends_at' => $oldEndsAt],
+            newValues: ['ends_at' => $newEndsAt->toIso8601String(), 'reason' => $request->input('reason')]
+        );
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['message' => 'Subscription extended successfully.', 'ends_at' => $newEndsAt->toIso8601String()]);
+        }
+
+        return redirect()->back()->with('success', "Subscription extended to {$newEndsAt->format('Y-m-d')}.");
+    }
+
+    public function changePlan(Request $request, int|string $cafe_id): JsonResponse|RedirectResponse
+    {
+        $request->validate([
+            'plan_id' => ['required', 'exists:plans,id'],
+            'reason'  => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $cafe = Cafe::findOrFail($cafe_id);
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
+        $oldPlanId = $sub->plan_id;
+        $newPlanId = (int) $request->input('plan_id');
+
+        $sub->update(['plan_id' => $newPlanId]);
+
+        $this->auditLogger->log(
+            action: 'subscription.plan_changed',
+            entityType: 'subscription',
+            entityId: $sub->id,
+            cafeId: $cafe->id,
+            oldValues: ['plan_id' => $oldPlanId],
+            newValues: ['plan_id' => $newPlanId, 'reason' => $request->input('reason')]
+        );
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['message' => 'Subscription plan changed successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Subscription plan changed successfully.');
+    }
+
+    public function reactivateSubscription(Request $request, int|string $cafe_id): JsonResponse|RedirectResponse
+    {
+        $request->validate([
+            'new_ends_at' => ['required', 'date', 'after:now'],
+            'reason'      => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $cafe = Cafe::findOrFail($cafe_id);
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
+        $oldStatus = $sub->status;
+        $oldEndsAt = $sub->ends_at?->toIso8601String();
+        $newEndsAt = \Carbon\Carbon::parse($request->input('new_ends_at'));
+
+        $sub->update([
+            'status'  => 'active',
+            'ends_at' => $newEndsAt,
+        ]);
+
+        $this->auditLogger->log(
+            action: 'subscription.reactivated',
+            entityType: 'subscription',
+            entityId: $sub->id,
+            cafeId: $cafe->id,
+            oldValues: ['status' => $oldStatus, 'ends_at' => $oldEndsAt],
+            newValues: ['status' => 'active', 'ends_at' => $newEndsAt->toIso8601String(), 'reason' => $request->input('reason')]
+        );
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['message' => 'Subscription reactivated successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Subscription reactivated successfully.');
     }
 }
