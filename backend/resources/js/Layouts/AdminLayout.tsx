@@ -16,64 +16,97 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
         router.post('/logout');
     };
 
-    const adminNav = [
-        { name: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-        { name: 'Cafes', href: '/admin/cafes', icon: '☕' },
-        { name: 'SaaS Plans', href: '/admin/plans', icon: '💎' },
-        { name: 'Subscriptions', href: '/admin/subscriptions', icon: '💳' },
-        { name: 'Audit Logs', href: '/admin/audit-logs', icon: '📋' },
+    const navigation = [
+        { name: 'Dashboard', href: '/admin/dashboard', pattern: '/admin/dashboard' },
+        { name: 'Cafes', href: '/admin/cafes', pattern: '/admin/cafes*' },
+        { name: 'Subscriptions', href: '/admin/subscriptions', pattern: '/admin/subscriptions*' },
+        { name: 'Plans', href: '/admin/plans', pattern: '/admin/plans*' },
+        { name: 'Audit Logs', href: '/admin/audit-logs', pattern: '/admin/audit-logs*' },
     ];
 
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+
+    const isCurrent = (pattern: string) => {
+        if (pattern.endsWith('*')) {
+            const prefix = pattern.slice(0, -1);
+            return currentPath.startsWith(prefix);
+        }
+        return currentPath === pattern;
+    };
+
     return (
-        <div className="min-h-screen bg-stone-100 flex flex-col md:flex-row">
+        <div className="min-h-screen bg-stone-900 text-stone-100 flex flex-col font-sans">
             <Toast />
 
-            {/* Sidebar */}
-            <aside className="w-full md:w-64 bg-stone-900 text-stone-300 flex-shrink-0 flex flex-col border-r border-stone-800">
-                <div className="p-5 border-b border-stone-800 flex items-center justify-between">
-                    <Link href="/admin/dashboard" className="text-xl font-bold text-amber-500 tracking-tight flex items-center gap-2">
-                        🛡️ BrewOS Admin
-                    </Link>
-                </div>
+            {/* Platform Admin Navbar */}
+            <header className="bg-stone-950 border-b border-stone-800 sticky top-0 z-40 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-16">
+                        {/* Brand & Badge */}
+                        <div className="flex items-center gap-6">
+                            <Link href="/admin/dashboard" className="flex items-center gap-2 text-lg font-extrabold text-amber-500 tracking-tight">
+                                ☕ BrewOS Admin
+                            </Link>
 
-                <nav className="flex-1 p-4 space-y-1">
-                    {adminNav.map((item) => (
-                        <Link
-                            key={item.name}
-                            href={item.href}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold text-stone-300 hover:text-white hover:bg-stone-800 transition-colors"
-                        >
-                            <span>{item.icon}</span>
-                            <span>{item.name}</span>
-                        </Link>
-                    ))}
-                </nav>
-
-                {auth.user && (
-                    <div className="p-4 border-t border-stone-800 flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-semibold text-white">{auth.user.name}</p>
-                            <p className="text-[10px] text-amber-400 font-bold">Super Admin</p>
+                            {/* Navigation Links */}
+                            <nav className="hidden md:flex items-center gap-1">
+                                {navigation.map((item) => {
+                                    const active = isCurrent(item.pattern);
+                                    return (
+                                        <Link
+                                            key={item.name}
+                                            href={item.href}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                                active
+                                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                                    : 'text-stone-300 hover:text-white hover:bg-stone-800/80'
+                                            }`}
+                                        >
+                                            {item.name}
+                                        </Link>
+                                    );
+                                })}
+                            </nav>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="text-xs text-stone-400 hover:text-rose-400 font-medium px-2.5 py-1 rounded-md border border-stone-700 hover:border-rose-900 transition-colors"
-                        >
-                            Logout
-                        </button>
+
+                        {/* Super Admin User Menu */}
+                        <div className="flex items-center gap-4">
+                            <span className="hidden sm:inline-block bg-amber-500/10 text-amber-400 text-[11px] px-2.5 py-0.5 rounded-md font-semibold border border-amber-500/20 uppercase tracking-wider">
+                                Platform Super Admin
+                            </span>
+
+                            {auth.user && (
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right hidden sm:block">
+                                        <p className="text-xs font-semibold text-stone-200">{auth.user.name}</p>
+                                        <p className="text-[10px] text-stone-400">{auth.user.email}</p>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="text-xs text-stone-400 hover:text-rose-400 font-medium px-2.5 py-1 rounded-md border border-stone-800 hover:border-rose-900 transition-colors"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                )}
-            </aside>
+                </div>
+            </header>
+
+            {/* Sub-header / Title */}
+            {title && (
+                <div className="bg-stone-900/60 border-b border-stone-800/80 py-4">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                        <h1 className="text-xl font-bold text-white tracking-tight">{title}</h1>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {title && (
-                    <header className="bg-white border-b border-stone-200 px-6 py-4">
-                        <h1 className="text-xl font-bold text-stone-900">{title}</h1>
-                    </header>
-                )}
-                <main className="flex-1 p-6 max-w-7xl w-full mx-auto">{children}</main>
-            </div>
+            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                {children}
+            </main>
         </div>
     );
 };

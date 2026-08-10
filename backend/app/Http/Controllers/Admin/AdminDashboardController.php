@@ -8,9 +8,13 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use Illuminate\Http\JsonResponse;
 
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
+
 class AdminDashboardController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse|InertiaResponse
     {
         $totalCafes = Cafe::count();
         $activeCafes = Cafe::where('status', 'active')->count();
@@ -22,7 +26,7 @@ class AdminDashboardController extends Controller
             ->limit(5)
             ->get(['id', 'name', 'slug', 'status', 'created_at']);
 
-        return response()->json([
+        $data = [
             'metrics' => [
                 'total_cafes'          => $totalCafes,
                 'active_cafes'         => $activeCafes,
@@ -32,6 +36,12 @@ class AdminDashboardController extends Controller
             ],
             'recent_cafes' => $recentCafes,
             'message'      => 'Super Admin platform dashboard loaded.',
-        ]);
+        ];
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($data);
+        }
+
+        return Inertia::render('Admin/Dashboard', $data);
     }
 }

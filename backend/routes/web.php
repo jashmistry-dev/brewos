@@ -27,7 +27,23 @@ use App\Services\TenantContext;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    $user = auth()->user();
+
+    if (! $user) {
+        return redirect()->route('login');
+    }
+
+    if ($user->isSuperAdmin()) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    $membership = \App\Models\CafeUser::where('user_id', $user->id)->with('cafe')->first();
+
+    if ($membership && $membership->cafe) {
+        return redirect()->route('tenant.dashboard', ['cafe_slug' => $membership->cafe->slug]);
+    }
+
+    return redirect()->route('tenant.register.show');
 });
 
 Route::middleware('guest')->group(function () {
@@ -44,7 +60,7 @@ Route::middleware(['throttle:60,1'])->prefix('public/qr')->group(function () {
     Route::post('/{qr_token}/orders', [PublicOrderController::class, 'store'])->name('public.qr.orders');
 });
 
-Route::middleware(['auth:web', 'tenant'])->prefix('cafes/{cafe_slug}')->group(function () {
+Route::middleware(['auth:web', 'tenant', 'tenant_active'])->prefix('cafes/{cafe_slug}')->group(function () {
     Route::get('/dashboard', function () {
         $cafe = app(TenantContext::class)->getCafe();
 
