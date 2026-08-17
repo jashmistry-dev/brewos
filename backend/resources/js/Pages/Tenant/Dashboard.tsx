@@ -21,17 +21,19 @@ export default function Dashboard({ cafe, branchCount, staffCount }: DashboardPr
     const { auth } = usePage<PageProps>().props;
 
     const hasPermission = (permission: string) => {
-        return auth.permissions.includes(permission) || auth.roles.includes('cafe-owner');
+        return auth.roles.includes('cafe-owner') || auth.permissions.includes(permission);
     };
 
     const shortcuts = [
-        { name: 'Manage Menu', href: `/cafes/${cafe.slug}/menu-items`, show: hasPermission('menu.manage'), icon: '📜' },
-        { name: 'Tables & QR', href: `/cafes/${cafe.slug}/tables`, show: hasPermission('table.manage'), icon: '📱' },
+        { name: 'Manage Menu', href: `/cafes/${cafe.slug}/menu-items`, show: hasPermission('menu.view'), icon: '📜' },
+        { name: 'Tables & QR', href: `/cafes/${cafe.slug}/tables`, show: hasPermission('table.view'), icon: '📱' },
         { name: 'Orders Display', href: `/cafes/${cafe.slug}/orders`, show: hasPermission('order.view'), icon: '🛒' },
-        { name: 'Kitchen Display', href: `/cafes/${cafe.slug}/kitchen-display`, show: hasPermission('kds.view'), icon: '🍳' },
+        { name: 'Kitchen Display', href: `/cafes/${cafe.slug}/kitchen-display`, show: hasPermission('order.kitchen.view'), icon: '🍳' },
         { name: 'Sales Reports', href: `/cafes/${cafe.slug}/reports/sales`, show: hasPermission('report.view'), icon: '📈' },
         { name: 'Advanced Analytics', href: `/cafes/${cafe.slug}/analytics/customers`, show: hasPermission('report.view'), icon: '📊' },
     ];
+
+    const displayRole = auth.roles[0] ? auth.roles[0].replace('-', ' ') : 'Member';
 
     return (
         <AppLayout title="Cafe Operational Dashboard">
@@ -50,32 +52,36 @@ export default function Dashboard({ cafe, branchCount, staffCount }: DashboardPr
                     <span className="text-3xl">☕</span>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Active Branches</p>
-                        <h3 className="text-3xl font-extrabold text-amber-600 mt-1">{branchCount}</h3>
-                        <Link href={`/cafes/${cafe.slug}/branches`} className="text-xs text-amber-700 font-medium hover:underline mt-2 inline-block">
-                            View Branches →
-                        </Link>
+                {hasPermission('branch.view') && (
+                    <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Active Branches</p>
+                            <h3 className="text-3xl font-extrabold text-amber-600 mt-1">{branchCount}</h3>
+                            <Link href={`/cafes/${cafe.slug}/branches`} className="text-xs text-amber-700 font-medium hover:underline mt-2 inline-block">
+                                View Branches →
+                            </Link>
+                        </div>
+                        <span className="text-3xl">🏢</span>
                     </div>
-                    <span className="text-3xl">🏢</span>
-                </div>
+                )}
 
-                <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Staff Members</p>
-                        <h3 className="text-3xl font-extrabold text-amber-600 mt-1">{staffCount}</h3>
-                        <Link href={`/cafes/${cafe.slug}/staff`} className="text-xs text-amber-700 font-medium hover:underline mt-2 inline-block">
-                            View Staff →
-                        </Link>
+                {hasPermission('staff.view') && (
+                    <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Staff Members</p>
+                            <h3 className="text-3xl font-extrabold text-amber-600 mt-1">{staffCount}</h3>
+                            <Link href={`/cafes/${cafe.slug}/staff`} className="text-xs text-amber-700 font-medium hover:underline mt-2 inline-block">
+                                View Staff →
+                            </Link>
+                        </div>
+                        <span className="text-3xl">👥</span>
                     </div>
-                    <span className="text-3xl">👥</span>
-                </div>
+                )}
 
                 <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm flex items-center justify-between">
                     <div>
                         <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Current Role</p>
-                        <h3 className="text-lg font-bold text-stone-900 mt-1 capitalize">{auth.roles[0] || 'Member'}</h3>
+                        <h3 className="text-lg font-bold text-stone-900 mt-1 capitalize">{displayRole}</h3>
                         <p className="text-xs text-stone-500 mt-1">{auth.user?.email}</p>
                     </div>
                     <span className="text-3xl">🛡️</span>

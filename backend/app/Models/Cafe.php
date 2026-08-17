@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 
 class Cafe extends Model
 {
@@ -26,8 +27,41 @@ class Cafe extends Model
         'slug',
         'email',
         'phone',
+        'logo_path',
+        'address',
+        'city',
+        'state',
+        'postal_code',
+        'country',
+        'tax_number',
+        'tax_rate',
+        'business_hours',
+        'timezone',
+        'currency',
         'status',
         'notes',
+        'onboarded_at',
+        'qr_ordering_enabled',
+        'require_location',
+        'location_radius_meters',
+        'latitude',
+        'longitude',
+        'pay_at_counter_enabled',
+        'online_payment_enabled',
+        'require_payment_before_kitchen',
+        'allow_customer_reorder',
+        'call_staff_enabled',
+        'request_bill_enabled',
+    ];
+
+    protected $casts = [
+        'tax_rate'       => 'float',
+        'business_hours' => 'array',
+        'onboarded_at'   => 'datetime',
+    ];
+
+    protected $appends = [
+        'logo_url',
     ];
 
     /**
@@ -37,6 +71,16 @@ class Cafe extends Model
     protected $hidden = [
         'notes',
     ];
+
+    public function getLogoUrlAttribute(): ?string
+    {
+        if (! $this->logo_path) {
+            return null;
+        }
+
+        $diskName = config('filesystems.default', 'public');
+        return Storage::disk($diskName)->url($this->logo_path);
+    }
 
     /**
      * Boot the model and register the global scope that transparently hides
@@ -67,8 +111,23 @@ class Cafe extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'cafe_users')
-                    ->withPivot(['role_id', 'branch_id', 'status'])
-                    ->withTimestamps();
+            ->withPivot(['role_id', 'branch_id', 'status'])
+            ->withTimestamps();
+    }
+
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class);
+    }
+
+    public function menuItems(): HasMany
+    {
+        return $this->hasMany(MenuItem::class);
+    }
+
+    public function tables(): HasMany
+    {
+        return $this->hasMany(Table::class);
     }
 
     public function orders(): HasMany
@@ -76,23 +135,13 @@ class Cafe extends Model
         return $this->hasMany(Order::class);
     }
 
-    public function subscriptions(): HasMany
-    {
-        return $this->hasMany(Subscription::class);
-    }
-
-    public function auditLogs(): HasMany
-    {
-        return $this->hasMany(AuditLog::class);
-    }
-
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
     }
 
-    public function menuItems(): HasMany
+    public function subscriptions(): HasMany
     {
-        return $this->hasMany(MenuItem::class);
+        return $this->hasMany(Subscription::class);
     }
 }

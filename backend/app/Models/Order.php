@@ -16,14 +16,17 @@ class Order extends Model
         'cafe_id',
         'branch_id',
         'table_id',
+        'ordering_session_id',
         'customer_id',
         'order_number',
+        'order_type',
         'status',
         'subtotal',
         'tax',
         'discount',
         'total',
         'payment_status',
+        'customer_notes',
     ];
 
     protected $casts = [

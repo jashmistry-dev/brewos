@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->trustProxies(at: '*');
         $middleware->web(append: [
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\SecurityHeadersMiddleware::class,
@@ -27,5 +28,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, \Illuminate\Http\Request $request) {
+            if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+                return response()->json(['message' => 'THIS ACTION IS UNAUTHORIZED.'], 403);
+            }
+            return \Inertia\Inertia::render('Errors/403')->toResponse($request)->setStatusCode(403);
+        });
+
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, \Illuminate\Http\Request $request) {
+            if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+                return response()->json(['message' => 'THIS ACTION IS UNAUTHORIZED.'], 403);
+            }
+            return \Inertia\Inertia::render('Errors/403')->toResponse($request)->setStatusCode(403);
+        });
     })->create();

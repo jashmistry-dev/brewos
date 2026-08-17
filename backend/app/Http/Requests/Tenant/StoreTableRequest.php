@@ -36,14 +36,4 @@ class StoreTableRequest extends FormRequest
             'status' => ['sometimes', 'string', 'in:available,occupied,reserved,inactive'],
         ];
     }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            $cafeId = app(TenantContext::class)->getCafeId();
-            if ($cafeId && app(\App\Services\PlanLimitService::class)->hasReachedTableLimit($cafeId)) {
-                $validator->errors()->add('table', 'Table limit reached for your active subscription plan.');
-            }
-        });
-    }
 }

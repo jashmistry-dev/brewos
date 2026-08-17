@@ -22,12 +22,10 @@ class ResolveTenant
             abort(Response::HTTP_BAD_REQUEST, 'Tenant identifier missing in route.');
         }
 
-        $cafe = Cafe::where('slug', $cafeSlug)
-            ->where('status', 'active')
-            ->first();
+        $cafe = Cafe::where('slug', $cafeSlug)->first();
 
         if (! $cafe) {
-            abort(Response::HTTP_NOT_FOUND, 'Cafe not found or inactive.');
+            abort(Response::HTTP_NOT_FOUND, 'Cafe workspace not found.');
         }
 
         $user = $request->user();

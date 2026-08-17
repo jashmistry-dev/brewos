@@ -6,6 +6,7 @@ use App\Services\EntitlementService;
 use App\Services\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureTenantSubscriptionActive
@@ -31,7 +32,7 @@ class EnsureTenantSubscriptionActive
         }
 
         // Allow access to subscription management endpoints so tenant can upgrade/renew
-        if ($request->is('cafes/*/subscription*')) {
+        if ($request->is('cafes/*/subscription*') || $request->is('*/subscription*') || $request->routeIs('tenant.subscription.*')) {
             return $next($request);
         }
 
@@ -44,7 +45,11 @@ class EnsureTenantSubscriptionActive
                 ], Response::HTTP_FORBIDDEN);
             }
 
-            abort(Response::HTTP_FORBIDDEN, 'Subscription expired or inactive. Please renew your subscription.');
+            return Inertia::render('Errors/SubscriptionRequired', [
+                'cafeSlug' => $cafe->slug,
+                'cafeName' => $cafe->name,
+                'message'  => 'Your cafe subscription is expired or inactive. Your cafe operations are temporarily unavailable until you renew or choose a plan.',
+            ])->toResponse($request);
         }
 
         return $next($request);

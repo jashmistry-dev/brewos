@@ -15,7 +15,7 @@ class AnalyticsController extends Controller
         protected AnalyticsService $analyticsService
     ) {}
 
-    public function customers(AnalyticsFilterRequest $request, string $cafe_slug): JsonResponse
+    public function customers(AnalyticsFilterRequest $request, string $cafe_slug): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'report.view');
 
@@ -29,10 +29,17 @@ class AnalyticsController extends Controller
             branchId: isset($validated['branch_id']) ? (int) $validated['branch_id'] : null
         );
 
-        return response()->json($analytics);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($analytics);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Analytics', [
+            'activeTab' => 'customers',
+            'analytics' => $analytics,
+        ]);
     }
 
-    public function menu(AnalyticsFilterRequest $request, string $cafe_slug): JsonResponse
+    public function menu(AnalyticsFilterRequest $request, string $cafe_slug): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'report.view');
 
@@ -47,10 +54,17 @@ class AnalyticsController extends Controller
             limit: isset($validated['limit']) ? (int) $validated['limit'] : null
         );
 
-        return response()->json($analytics);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($analytics);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Analytics', [
+            'activeTab' => 'menu',
+            'analytics' => $analytics,
+        ]);
     }
 
-    public function peakHours(AnalyticsFilterRequest $request, string $cafe_slug): JsonResponse
+    public function peakHours(AnalyticsFilterRequest $request, string $cafe_slug): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'report.view');
 
@@ -64,6 +78,13 @@ class AnalyticsController extends Controller
             branchId: isset($validated['branch_id']) ? (int) $validated['branch_id'] : null
         );
 
-        return response()->json($analytics);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($analytics);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Analytics', [
+            'activeTab' => 'peakHours',
+            'analytics' => $analytics,
+        ]);
     }
 }

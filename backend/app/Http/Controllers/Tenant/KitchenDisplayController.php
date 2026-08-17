@@ -10,14 +10,21 @@ use Illuminate\Support\Facades\Gate;
 
 class KitchenDisplayController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|\Inertia\Response
     {
-        Gate::authorize('permission', 'order.view');
+        if (! (Gate::allows('permission', 'order.view') || Gate::allows('permission', 'order.kitchen.view'))) {
+            Gate::authorize('permission', 'order.kitchen.view');
+        }
 
-        $activeStatuses = ['pending', 'confirmed', 'preparing', 'ready'];
+        $activeStatuses = ['pending', 'kitchen_pending', 'confirmed', 'preparing', 'ready'];
 
         $query = Order::with(['table', 'orderItems.menuItem'])
             ->whereIn('status', $activeStatuses)
+            ->where(function ($q) {
+                $q->where('order_type', '!=', 'dine_in_qr')
+                  ->orWhere('payment_status', 'paid')
+                  ->orWhereHas('cafe', fn ($q2) => $q2->where('require_payment_before_kitchen', false));
+            })
             ->orderBy('created_at', 'asc');
 
         if ($request->has('branch_id')) {
@@ -26,20 +33,28 @@ class KitchenDisplayController extends Controller
 
         $orders = $query->get();
 
-        return response()->json([
-            'orders' => $orders->map(fn ($o) => [
-                'id' => $o->id,
-                'order_number' => $o->order_number,
-                'table_name' => $o->table?->name,
-                'status' => $o->status,
-                'created_at' => $o->created_at?->toIso8601String(),
-                'elapsed_minutes' => (int) $o->created_at?->diffInMinutes(now()),
-                'items' => $o->orderItems->map(fn ($oi) => [
-                    'id' => $oi->id,
-                    'name' => $oi->menuItem?->name,
-                    'quantity' => $oi->quantity,
-                ]),
+        $formattedOrders = $orders->map(fn ($o) => [
+            'id' => $o->id,
+            'order_number' => $o->order_number,
+            'table_name' => $o->table?->name,
+            'status' => $o->status,
+            'created_at' => $o->created_at?->toIso8601String(),
+            'elapsed_minutes' => (int) $o->created_at?->diffInMinutes(now()),
+            'items' => $o->orderItems->map(fn ($oi) => [
+                'id' => $oi->id,
+                'name' => $oi->menuItem?->name,
+                'quantity' => $oi->quantity,
             ]),
+        ]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'orders' => $formattedOrders,
+            ]);
+        }
+
+        return \Inertia\Inertia::render('Tenant/KitchenDisplay', [
+            'orders' => $formattedOrders,
         ]);
     }
 }

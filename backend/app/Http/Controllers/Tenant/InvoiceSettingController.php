@@ -11,19 +11,23 @@ use Illuminate\Support\Facades\Gate;
 
 class InvoiceSettingController extends Controller
 {
-    public function show(): JsonResponse
+    public function show(\Illuminate\Http\Request $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         Gate::authorize('permission', 'invoice.view');
 
         $cafeId  = app(TenantContext::class)->getCafeId();
         $setting = InvoiceSetting::where('cafe_id', $cafeId)->first();
 
-        return response()->json([
-            'invoice_setting' => $setting ? $this->format($setting) : null,
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'invoice_setting' => $setting ? $this->format($setting) : null,
+            ]);
+        }
+
+        return redirect()->back();
     }
 
-    public function update(UpdateInvoiceSettingRequest $request): JsonResponse
+    public function update(UpdateInvoiceSettingRequest $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         Gate::authorize('permission', 'invoice.settings.update');
 
@@ -35,10 +39,14 @@ class InvoiceSettingController extends Controller
             $validated
         );
 
-        return response()->json([
-            'message'         => 'Invoice settings updated successfully.',
-            'invoice_setting' => $this->format($setting),
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message'         => 'Invoice settings updated successfully.',
+                'invoice_setting' => $this->format($setting),
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Invoice settings updated successfully.');
     }
 
     private function format(InvoiceSetting $setting): array

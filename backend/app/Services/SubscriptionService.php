@@ -19,10 +19,15 @@ class SubscriptionService
             ->latest('id')
             ->first();
 
-        $staffLimit = $this->planLimitService->getFeatureLimit($cafeId, 'staff_limit');
-        $tableLimit = $this->planLimitService->getFeatureLimit($cafeId, 'table_limit');
-        $currentStaff = $this->planLimitService->getCurrentStaffCount($cafeId);
-        $currentTables = $this->planLimitService->getCurrentTableCount($cafeId);
+        $branchLimit   = $this->planLimitService->getFeatureLimit($cafeId, 'branch_limit');
+        $staffLimit    = $this->planLimitService->getFeatureLimit($cafeId, 'staff_limit');
+        $tableLimit    = $this->planLimitService->getFeatureLimit($cafeId, 'table_limit');
+        $menuItemLimit = $this->planLimitService->getFeatureLimit($cafeId, 'menu_item_limit');
+
+        $currentBranches  = $this->planLimitService->getCurrentBranchCount($cafeId);
+        $currentStaff     = $this->planLimitService->getCurrentStaffCount($cafeId);
+        $currentTables    = $this->planLimitService->getCurrentTableCount($cafeId);
+        $currentMenuItems = $this->planLimitService->getCurrentMenuItemCount($cafeId);
 
         return [
             'subscription' => $subscription ? [
@@ -48,6 +53,10 @@ class SubscriptionService
                 ],
             ] : null,
             'usage' => [
+                'branches' => [
+                    'current' => $currentBranches,
+                    'limit'   => $branchLimit,
+                ],
                 'staff' => [
                     'current' => $currentStaff,
                     'limit'   => $staffLimit,
@@ -55,6 +64,10 @@ class SubscriptionService
                 'tables' => [
                     'current' => $currentTables,
                     'limit'   => $tableLimit,
+                ],
+                'menu_items' => [
+                    'current' => $currentMenuItems,
+                    'limit'   => $menuItemLimit,
                 ],
             ],
         ];
@@ -116,7 +129,7 @@ class SubscriptionService
     public function cancelSubscription(int $cafeId): Subscription
     {
         $subscription = Subscription::where('cafe_id', $cafeId)
-            ->whereIn('status', ['active', 'trial'])
+            ->whereIn('status', ['active', 'trialing', 'trial'])
             ->latest('id')
             ->firstOrFail();
 

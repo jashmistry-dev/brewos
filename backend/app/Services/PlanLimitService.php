@@ -16,7 +16,7 @@ class PlanLimitService
     public function getFeatureLimit(int $cafeId, string $featureKey): ?int
     {
         $subscription = Subscription::where('cafe_id', $cafeId)
-            ->whereIn('status', ['active', 'trial'])
+            ->whereIn('status', ['active', 'trial', 'trialing'])
             ->with(['plan.features'])
             ->latest('id')
             ->first();

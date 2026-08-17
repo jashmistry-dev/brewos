@@ -34,10 +34,10 @@ class RolePermissionTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->staffViewPermission = Permission::create([
-            'name' => 'View Staff',
-            'slug' => 'staff.view',
-        ]);
+        $this->staffViewPermission = Permission::firstOrCreate(
+            ['slug' => 'staff.view'],
+            ['name' => 'View Staff']
+        );
 
         $this->managerRole = Role::create([
             'cafe_id' => $this->cafe->id,
@@ -76,9 +76,8 @@ class RolePermissionTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->superAdminUser = User::create([
+        $this->superAdminUser = User::firstOrCreate(['email' => 'admin@brewos.com'], [
             'name' => 'Super Admin',
-            'email' => 'admin@brewos.com',
             'password' => Hash::make('password123'),
             'status' => 'active',
         ]);

@@ -14,12 +14,12 @@ use App\Models\RestaurantTable;
 use App\Models\Role;
 use App\Models\Subscription;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class SubscriptionEntitlementTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected Cafe $cafe;
     protected User $owner;
@@ -63,7 +63,7 @@ class SubscriptionEntitlementTest extends TestCase
             ['name' => 'Super Admin']
         );
 
-        $platformCafe = Cafe::firstOrCreate(
+        $platformCafe = Cafe::withoutGlobalScopes()->firstOrCreate(
             ['slug' => Cafe::PLATFORM_SENTINEL_SLUG],
             ['name' => 'BrewOS Platform', 'email' => 'admin@brewos.platform', 'status' => 'active']
         );

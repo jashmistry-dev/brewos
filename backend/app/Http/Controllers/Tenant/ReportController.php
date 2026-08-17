@@ -15,7 +15,7 @@ class ReportController extends Controller
         protected ReportService $reportService
     ) {}
 
-    public function sales(ReportFilterRequest $request, string $cafe_slug): JsonResponse
+    public function sales(ReportFilterRequest $request, string $cafe_slug): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'report.view');
 
@@ -29,10 +29,17 @@ class ReportController extends Controller
             branchId: isset($validated['branch_id']) ? (int) $validated['branch_id'] : null
         );
 
-        return response()->json($report);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($report);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Reports', [
+            'activeTab' => 'sales',
+            'report'    => $report,
+        ]);
     }
 
-    public function revenue(ReportFilterRequest $request, string $cafe_slug): JsonResponse
+    public function revenue(ReportFilterRequest $request, string $cafe_slug): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'report.view');
 
@@ -46,10 +53,17 @@ class ReportController extends Controller
             branchId: isset($validated['branch_id']) ? (int) $validated['branch_id'] : null
         );
 
-        return response()->json($report);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($report);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Reports', [
+            'activeTab' => 'revenue',
+            'report'    => $report,
+        ]);
     }
 
-    public function staff(ReportFilterRequest $request, string $cafe_slug): JsonResponse
+    public function staff(ReportFilterRequest $request, string $cafe_slug): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'report.view');
 
@@ -63,6 +77,13 @@ class ReportController extends Controller
             branchId: isset($validated['branch_id']) ? (int) $validated['branch_id'] : null
         );
 
-        return response()->json($report);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($report);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Reports', [
+            'activeTab' => 'staff',
+            'report'    => $report,
+        ]);
     }
 }

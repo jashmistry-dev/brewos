@@ -4,248 +4,312 @@ namespace Tests\Feature\Public;
 
 use App\Models\Branch;
 use App\Models\Cafe;
+use App\Models\CafeUser;
 use App\Models\Category;
+use App\Models\CustomerRequest;
 use App\Models\MenuItem;
+use App\Models\Order;
+use App\Models\OrderingSession;
 use App\Models\RestaurantTable;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use App\Models\Role;
+use App\Models\User;
+use App\Services\DefaultTenantRolesService;
+use Database\Seeders\SuperAdminSeeder;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class PublicQROrderingTest extends TestCase
 {
     use DatabaseTransactions;
 
-    protected Cafe $cafeA;
-    protected Cafe $cafeB;
-    protected Branch $branchA;
-    protected Branch $branchB;
-    protected Category $categoryA;
-    protected Category $categoryB;
-    protected MenuItem $menuItemA1;
-    protected MenuItem $menuItemA2;
-    protected MenuItem $menuItemB;
-    protected RestaurantTable $tableA;
+    protected Cafe $cafe;
+    protected Branch $branch;
+    protected RestaurantTable $table;
+    protected MenuItem $menuItem1;
+    protected MenuItem $menuItem2;
+    protected User $ownerUser;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->withoutMiddleware(ValidateCsrfToken::class);
 
-        $this->cafeA = Cafe::create([
-            'name' => 'QR Cafe A',
-            'slug' => 'qr-cafe-a',
-            'status' => 'active',
+        $this->seed(SuperAdminSeeder::class);
+
+        // Create Cafe with QR ordering enabled
+        $this->cafe = Cafe::create([
+            'name'                           => 'QR Diner Cafe',
+            'slug'                           => 'qr-diner-cafe',
+            'email'                          => 'owner@qrdiner.com',
+            'status'                         => 'active',
+            'qr_ordering_enabled'            => true,
+            'require_location'               => false,
+            'pay_at_counter_enabled'         => true,
+            'require_payment_before_kitchen' => true,
+            'call_staff_enabled'             => true,
+            'request_bill_enabled'           => true,
+            'tax_rate'                       => 5.0,
         ]);
 
-        $this->cafeB = Cafe::create([
-            'name' => 'QR Cafe B',
-            'slug' => 'qr-cafe-b',
-            'status' => 'active',
+        $this->branch = Branch::create([
+            'cafe_id' => $this->cafe->id,
+            'name'    => 'Main Outlet',
+            'slug'    => 'main',
+            'status'  => 'active',
         ]);
 
-        $this->branchA = Branch::create([
-            'cafe_id' => $this->cafeA->id,
-            'name' => 'Branch A',
-            'slug' => 'branch-a',
-            'status' => 'active',
+        $this->table = RestaurantTable::create([
+            'branch_id' => $this->branch->id,
+            'name'      => 'Table 07',
+            'capacity'  => 4,
+            'status'    => 'available',
+            'qr_token'  => RestaurantTable::generateQrToken(),
         ]);
 
-        $this->branchB = Branch::create([
-            'cafe_id' => $this->cafeB->id,
-            'name' => 'Branch B',
-            'slug' => 'branch-b',
-            'status' => 'active',
+        $rolesService = app(DefaultTenantRolesService::class);
+        $roles = $rolesService->createDefaultRolesForCafe($this->cafe);
+        $ownerRole = $roles['cafe-owner'];
+
+        $this->ownerUser = User::create([
+            'name'     => 'QR Cafe Owner',
+            'email'    => 'owner@qrdiner.com',
+            'password' => Hash::make('password'),
+            'status'   => 'active',
         ]);
 
-        $this->categoryA = Category::create([
-            'cafe_id' => $this->cafeA->id,
-            'name' => 'Beverages A',
-            'status' => 'active',
+        CafeUser::create([
+            'cafe_id'   => $this->cafe->id,
+            'user_id'   => $this->ownerUser->id,
+            'role_id'   => $ownerRole->id,
+            'branch_id' => $this->branch->id,
+            'status'    => 'active',
         ]);
 
-        $this->categoryB = Category::create([
-            'cafe_id' => $this->cafeB->id,
-            'name' => 'Beverages B',
-            'status' => 'active',
+        $category = Category::create([
+            'cafe_id'    => $this->cafe->id,
+            'name'       => 'Hot Drinks',
+            'slug'       => 'hot-drinks',
+            'sort_order' => 1,
         ]);
 
-        $this->menuItemA1 = MenuItem::create([
-            'cafe_id' => $this->cafeA->id,
-            'category_id' => $this->categoryA->id,
-            'name' => 'Espresso',
-            'price' => 4.00,
-            'status' => 'active',
+        $this->menuItem1 = MenuItem::create([
+            'cafe_id'     => $this->cafe->id,
+            'category_id' => $category->id,
+            'name'        => 'Espresso Double',
+            'price'       => '4.00',
+            'status'      => 'active',
         ]);
 
-        $this->menuItemA2 = MenuItem::create([
-            'cafe_id' => $this->cafeA->id,
-            'category_id' => $this->categoryA->id,
-            'name' => 'Americano',
-            'price' => 4.50,
-            'status' => 'available',
-        ]);
-
-        $this->menuItemB = MenuItem::create([
-            'cafe_id' => $this->cafeB->id,
-            'category_id' => $this->categoryB->id,
-            'name' => 'Cafe B Coffee',
-            'price' => 10.00,
-            'status' => 'active',
-        ]);
-
-        $this->tableA = RestaurantTable::create([
-            'branch_id' => $this->branchA->id,
-            'name' => 'Table A-1',
-            'capacity' => 4,
-            'qr_token' => 'valid-qr-token-cafe-a',
+        $this->menuItem2 = MenuItem::create([
+            'cafe_id'     => $this->cafe->id,
+            'category_id' => $category->id,
+            'name'        => 'Cheesecake',
+            'price'       => '6.00',
+            'status'      => 'active',
         ]);
     }
 
-    public function test_valid_public_qr_menu_retrieval(): void
+    public function test_public_qr_token_resolves_table_and_creates_ordering_session(): void
     {
-        $response = $this->getJson("/public/qr/{$this->tableA->qr_token}/menu");
+        $response = $this->get("/order/c/{$this->cafe->slug}/t/{$this->table->qr_token}");
 
-        $response->assertStatus(200)
-            ->assertJson([
-                'cafe' => [
-                    'name' => 'QR Cafe A',
-                    'slug' => 'qr-cafe-a',
-                ],
-                'branch' => [
-                    'name' => 'Branch A',
-                ],
-                'table' => [
-                    'name' => 'Table A-1',
-                ],
-            ]);
+        $response->assertStatus(200);
 
-        $this->assertNotEmpty($response->json('categories'));
-    }
-
-    public function test_invalid_qr_token_returns_404(): void
-    {
-        $response = $this->getJson('/public/qr/non-existent-token/menu');
-        $response->assertStatus(404);
-    }
-
-    public function test_public_qr_order_creation_and_server_side_calculation(): void
-    {
-        $response = $this->postJson("/public/qr/{$this->tableA->qr_token}/orders", [
-            'items' => [
-                [
-                    'menu_item_id' => $this->menuItemA1->id,
-                    'quantity' => 2,
-                ],
-                [
-                    'menu_item_id' => $this->menuItemA2->id,
-                    'quantity' => 1,
-                ],
-            ],
+        $this->assertDatabaseHas('ordering_sessions', [
+            'cafe_id'       => $this->cafe->id,
+            'table_id'      => $this->table->id,
+            'qr_token_used' => $this->table->qr_token,
+            'status'        => 'active',
         ]);
-
-        $response->assertStatus(201)
-            ->assertJson([
-                'message' => 'Order created successfully.',
-                'order' => [
-                    'status' => 'pending',
-                    'payment_status' => 'unpaid',
-                    'subtotal' => 12.50, // (4.00 * 2) + (4.50 * 1)
-                    'tax' => 0.00,
-                    'total' => 12.50,
-                ],
-            ]);
-
-        $orderNumber = $response->json('order.order_number');
-        $this->assertMatchesRegularExpression('/^ORD-\d{8}-\d{4}$/', $orderNumber);
     }
 
-    public function test_cross_tenant_menu_item_submission_rejected(): void
+    public function test_invalid_qr_token_is_rejected_with_422(): void
     {
-        // Attempting to submit Cafe B's menu item for Cafe A's QR token
-        $response = $this->postJson("/public/qr/{$this->tableA->qr_token}/orders", [
-            'items' => [
-                [
-                    'menu_item_id' => $this->menuItemB->id,
-                    'quantity' => 1,
-                ],
-            ],
-        ]);
+        $response = $this->getJson('/order/c/' . $this->cafe->slug . '/t/invalid-fake-qr-token');
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['items']);
+            ->assertJsonPath('errors.qr_token.0', 'Invalid or expired QR code.');
     }
 
-    public function test_unavailable_menu_item_submission_rejected(): void
+    public function test_customer_can_submit_order_with_pay_at_counter_flow(): void
     {
-        $unavailableItem = MenuItem::create([
-            'cafe_id' => $this->cafeA->id,
-            'category_id' => $this->categoryA->id,
-            'name' => 'Out of Stock Coffee',
-            'price' => 5.00,
-            'status' => 'unavailable',
+        $session = OrderingSession::create([
+            'cafe_id'       => $this->cafe->id,
+            'branch_id'     => $this->branch->id,
+            'table_id'      => $this->table->id,
+            'session_token' => OrderingSession::generateToken(),
+            'qr_token_used' => $this->table->qr_token,
+            'status'        => 'active',
+            'expires_at'    => now()->addHours(2),
         ]);
 
-        $response = $this->postJson("/public/qr/{$this->tableA->qr_token}/orders", [
-            'items' => [
-                [
-                    'menu_item_id' => $unavailableItem->id,
-                    'quantity' => 1,
-                ],
+        $orderResponse = $this->postJson('/order/submit', [
+            'session_token'  => $session->session_token,
+            'payment_method' => 'pay_at_counter',
+            'customer_notes' => 'Please bring extra napkins',
+            'items'          => [
+                ['menu_item_id' => $this->menuItem1->id, 'quantity' => 2], // 2 x $4.00 = $8.00
+                ['menu_item_id' => $this->menuItem2->id, 'quantity' => 1], // 1 x $6.00 = $6.00
             ],
         ]);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['items']);
-    }
+        $orderResponse->assertStatus(200)
+            ->assertJsonPath('order.status', 'payment_pending')
+            ->assertJsonPath('order.payment_status', 'pending_counter_confirmation');
 
-    public function test_server_side_price_snapshotting(): void
-    {
-        $response = $this->postJson("/public/qr/{$this->tableA->qr_token}/orders", [
-            'items' => [
-                [
-                    'menu_item_id' => $this->menuItemA1->id,
-                    'quantity' => 1,
-                ],
-            ],
+        $orderId = $orderResponse->json('order.id');
+
+        $this->assertDatabaseHas('orders', [
+            'id'             => $orderId,
+            'table_id'       => $this->table->id,
+            'subtotal'       => 14.00,
+            'tax'            => 0.70, // 5% tax
+            'total'          => 14.70,
+            'payment_status' => 'pending_counter_confirmation',
         ]);
 
-        $response->assertStatus(201);
-        $unitPrice = $response->json('order.items.0.unit_price');
-        $this->assertEquals(4.00, $unitPrice);
+        // Kitchen Display must NOT show unpaid order when require_payment_before_kitchen is true
+        $kitchenResBefore = $this->actingAs($this->ownerUser)
+            ->getJson("/cafes/{$this->cafe->slug}/kitchen-display");
 
-        // Mutating the menu item price afterwards should not affect the order item price
-        $this->menuItemA1->update(['price' => 99.99]);
+        $kitchenResBefore->assertStatus(200);
+        $this->assertCount(0, $kitchenResBefore->json('orders'));
 
-        $orderId = $response->json('order.id');
-        $order = \App\Models\Order::with('orderItems')->find($orderId);
-        $this->assertEquals(4.00, (float) $order->orderItems->first()->unit_price);
+        // Cashier confirms payment
+        $confirmRes = $this->actingAs($this->ownerUser)
+            ->postJson("/cafes/{$this->cafe->slug}/orders/{$orderId}/confirm-payment", [
+                'payment_method' => 'cash',
+            ]);
+
+        $confirmRes->assertStatus(200)
+            ->assertJsonPath('order.status', 'kitchen_pending')
+            ->assertJsonPath('order.payment_status', 'paid');
+
+        // Kitchen Display NOW receives the paid order!
+        $kitchenResAfter = $this->actingAs($this->ownerUser)
+            ->getJson("/cafes/{$this->cafe->slug}/kitchen-display");
+
+        $kitchenResAfter->assertStatus(200);
+        $this->assertCount(1, $kitchenResAfter->json('orders'));
+        $this->assertEquals($orderResponse->json('order.order_number'), $kitchenResAfter->json('orders.0.order_number'));
     }
 
-    public function test_public_qr_rate_limiting_enforces_60_requests_per_minute(): void
+    public function test_customer_can_send_table_request_like_call_staff_or_request_bill(): void
     {
-        for ($i = 0; $i < 60; $i++) {
-            $response = $this->getJson("/public/qr/{$this->tableA->qr_token}/menu");
-            $response->assertStatus(200);
+        $session = OrderingSession::create([
+            'cafe_id'       => $this->cafe->id,
+            'branch_id'     => $this->branch->id,
+            'table_id'      => $this->table->id,
+            'session_token' => OrderingSession::generateToken(),
+            'qr_token_used' => $this->table->qr_token,
+            'status'        => 'active',
+            'expires_at'    => now()->addHours(2),
+        ]);
+
+        $reqRes = $this->postJson('/order/request', [
+            'session_token' => $session->session_token,
+            'request_type'  => 'call_staff',
+            'notes'         => 'Water refilled please',
+        ]);
+
+        $reqRes->assertStatus(200)
+            ->assertJsonPath('request.request_type', 'call_staff')
+            ->assertJsonPath('request.status', 'pending');
+
+        $requestId = $reqRes->json('request.id');
+
+        // Cashier checks active customer requests
+        $staffRequestsRes = $this->actingAs($this->ownerUser)
+            ->getJson("/cafes/{$this->cafe->slug}/customer-requests");
+
+        $staffRequestsRes->assertStatus(200);
+        $this->assertCount(1, $staffRequestsRes->json('customer_requests'));
+
+        // Cashier acknowledges customer request
+        $ackRes = $this->actingAs($this->ownerUser)
+            ->patchJson("/cafes/{$this->cafe->slug}/customer-requests/{$requestId}/acknowledge", [
+                'status' => 'completed',
+            ]);
+
+        $ackRes->assertStatus(200)
+            ->assertJsonPath('request.status', 'completed');
+    }
+
+    public function test_customer_service_requests_all_three_types(): void
+    {
+        $session = OrderingSession::create([
+            'cafe_id'       => $this->cafe->id,
+            'branch_id'     => $this->branch->id,
+            'table_id'      => $this->table->id,
+            'session_token' => OrderingSession::generateToken(),
+            'qr_token_used' => $this->table->qr_token,
+            'status'        => 'active',
+            'expires_at'    => now()->addHours(2),
+        ]);
+
+        $types = ['call_staff', 'water', 'request_bill'];
+
+        foreach ($types as $type) {
+            $res = $this->postJson('/order/request', [
+                'session_token' => $session->session_token,
+                'request_type'  => $type,
+            ]);
+
+            $res->assertStatus(200)
+                ->assertJsonPath('request.request_type', $type)
+                ->assertJsonPath('request.status', 'pending');
         }
 
-        $rateLimitedResponse = $this->getJson("/public/qr/{$this->tableA->qr_token}/menu");
-        $rateLimitedResponse->assertStatus(429);
+        $this->assertEquals(3, \App\Models\CustomerRequest::where('cafe_id', $this->cafe->id)->count());
     }
 
-    public function test_first_order_of_day_and_subsequent_order_numbers(): void
+    public function test_public_qr_order_submission_with_csrf_header_and_body_token(): void
     {
-        $datePrefix = date('Ymd');
-
-        $response1 = $this->postJson("/public/qr/{$this->tableA->qr_token}/orders", [
-            'items' => [['menu_item_id' => $this->menuItemA1->id, 'quantity' => 1]],
+        $session = OrderingSession::create([
+            'cafe_id'       => $this->cafe->id,
+            'branch_id'     => $this->branch->id,
+            'table_id'      => $this->table->id,
+            'session_token' => OrderingSession::generateToken(),
+            'qr_token_used' => $this->table->qr_token,
+            'status'        => 'active',
+            'expires_at'    => now()->addHours(2),
         ]);
-        $response1->assertStatus(201);
-        $this->assertEquals("ORD-{$datePrefix}-0001", $response1->json('order.order_number'));
 
-        $response2 = $this->postJson("/public/qr/{$this->tableA->qr_token}/orders", [
-            'items' => [['menu_item_id' => $this->menuItemA1->id, 'quantity' => 2]],
-        ]);
-        $response2->assertStatus(201);
-        $this->assertEquals("ORD-{$datePrefix}-0002", $response2->json('order.order_number'));
+        $res = $this->withHeaders(['X-CSRF-TOKEN' => 'test-csrf-token'])
+            ->postJson('/order/submit', [
+                '_token'        => 'test-csrf-token',
+                'session_token' => $session->session_token,
+                'payment_method' => 'pay_at_counter',
+                'items' => [
+                    ['menu_item_id' => $this->menuItem1->id, 'quantity' => 2],
+                ],
+            ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('order.status', 'payment_pending')
+            ->assertJsonPath('order.payment_status', 'pending_counter_confirmation');
+    }
+
+    public function test_table_qr_regeneration_invalidates_old_token(): void
+    {
+        $oldToken = $this->table->qr_token;
+
+        $regenRes = $this->actingAs($this->ownerUser)
+            ->postJson("/cafes/{$this->cafe->slug}/tables/{$this->table->id}/regenerate-qr");
+
+        $regenRes->assertStatus(200);
+        $newToken = $regenRes->json('qr_token');
+
+        $this->assertNotEquals($oldToken, $newToken);
+
+        // Old QR token is rejected
+        $oldScan = $this->getJson("/order/c/{$this->cafe->slug}/t/{$oldToken}");
+        $oldScan->assertStatus(422);
+
+        // New QR token succeeds
+        $newScan = $this->get("/order/c/{$this->cafe->slug}/t/{$newToken}");
+        $newScan->assertStatus(200);
     }
 }

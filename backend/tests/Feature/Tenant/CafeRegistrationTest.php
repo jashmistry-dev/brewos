@@ -25,28 +25,22 @@ class CafeRegistrationTest extends TestCase
     public function test_successful_cafe_registration(): void
     {
         $payload = [
-            'name' => 'Roast & Brew',
-            'slug' => 'roast-and-brew',
-            'email' => 'contact@roastbrew.com',
-            'phone' => '9876543210',
-            'owner_name' => 'Owner Alice',
-            'owner_email' => 'alice@roastbrew.com',
-            'password' => 'password123',
+            'name'                  => 'Roast & Brew',
+            'slug'                  => 'roast-and-brew',
+            'email'                 => 'contact@roastbrew.com',
+            'phone'                 => '9876543210',
+            'owner_name'            => 'Owner Alice',
+            'owner_email'           => 'alice@roastbrew.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
         ];
 
         $response = $this->postJson('/register-cafe', $payload);
 
         $response->assertStatus(201)
-            ->assertJson([
-                'message' => 'Cafe registered successfully.',
-                'cafe' => [
-                    'name' => 'Roast & Brew',
-                    'slug' => 'roast-and-brew',
-                ],
-                'owner' => [
-                    'email' => 'alice@roastbrew.com',
-                ],
-            ]);
+            ->assertJsonPath('cafe.name', 'Roast & Brew')
+            ->assertJsonPath('cafe.slug', 'roast-and-brew')
+            ->assertJsonPath('owner.email', 'alice@roastbrew.com');
 
         $this->assertDatabaseHas('cafes', ['slug' => 'roast-and-brew']);
         $this->assertDatabaseHas('users', ['email' => 'alice@roastbrew.com']);
@@ -55,9 +49,9 @@ class CafeRegistrationTest extends TestCase
     public function test_invalid_cafe_registration_validation_fails(): void
     {
         $response = $this->postJson('/register-cafe', [
-            'name' => '',
-            'slug' => 'invalid slug!',
-            'email' => 'not-an-email',
+            'name'     => '',
+            'slug'     => 'invalid slug!',
+            'email'    => 'not-an-email',
             'password' => 'short',
         ]);
 
@@ -68,12 +62,13 @@ class CafeRegistrationTest extends TestCase
     public function test_owner_membership_and_default_branch_created(): void
     {
         $payload = [
-            'name' => 'Espresso Hub',
-            'slug' => 'espresso-hub',
-            'email' => 'info@espressohub.com',
-            'owner_name' => 'Owner Bob',
-            'owner_email' => 'bob@espressohub.com',
-            'password' => 'password123',
+            'name'                  => 'Espresso Hub',
+            'slug'                  => 'espresso-hub',
+            'email'                 => 'info@espressohub.com',
+            'owner_name'            => 'Owner Bob',
+            'owner_email'           => 'bob@espressohub.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
         ];
 
         $this->postJson('/register-cafe', $payload);
@@ -97,12 +92,13 @@ class CafeRegistrationTest extends TestCase
     public function test_default_roles_created_according_to_authoritative_docs(): void
     {
         $payload = [
-            'name' => 'Bean & Leaf',
-            'slug' => 'bean-and-leaf',
-            'email' => 'contact@beanleaf.com',
-            'owner_name' => 'Owner Charlie',
-            'owner_email' => 'charlie@beanleaf.com',
-            'password' => 'password123',
+            'name'                  => 'Bean & Leaf',
+            'slug'                  => 'bean-and-leaf',
+            'email'                 => 'contact@beanleaf.com',
+            'owner_name'            => 'Owner Charlie',
+            'owner_email'           => 'charlie@beanleaf.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
         ];
 
         $this->postJson('/register-cafe', $payload);
@@ -125,12 +121,13 @@ class CafeRegistrationTest extends TestCase
             ->andThrow(new \Exception('Simulated Database Error'));
 
         $payload = [
-            'name' => 'Rollback Cafe',
-            'slug' => 'rollback-cafe',
-            'email' => 'info@rollback.com',
-            'owner_name' => 'Owner David',
-            'owner_email' => 'david@rollback.com',
-            'password' => 'password123',
+            'name'                  => 'Rollback Cafe',
+            'slug'                  => 'rollback-cafe',
+            'email'                 => 'info@rollback.com',
+            'owner_name'            => 'Owner David',
+            'owner_email'           => 'david@rollback.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
         ];
 
         try {

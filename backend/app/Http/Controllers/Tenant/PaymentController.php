@@ -13,24 +13,32 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PaymentController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(\Illuminate\Http\Request $request): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'payment.view');
 
         $payments = Payment::with(['order'])->orderBy('created_at', 'desc')->get();
 
-        return response()->json([
-            'payments' => $payments->map(fn ($p) => [
-                'id'                    => $p->id,
-                'order_id'              => $p->order_id,
-                'order_number'          => $p->order?->order_number,
-                'amount'                => (float) $p->amount,
-                'method'                => $p->method,
-                'status'                => $p->status,
-                'transaction_reference' => $p->transaction_reference,
-                'paid_at'               => $p->paid_at?->toIso8601String(),
-                'created_at'            => $p->created_at?->toIso8601String(),
-            ]),
+        $formattedPayments = $payments->map(fn ($p) => [
+            'id'                    => $p->id,
+            'order_id'              => $p->order_id,
+            'order_number'          => $p->order?->order_number,
+            'amount'                => (float) $p->amount,
+            'method'                => $p->method,
+            'status'                => $p->status,
+            'transaction_reference' => $p->transaction_reference,
+            'paid_at'               => $p->paid_at?->toIso8601String(),
+            'created_at'            => $p->created_at?->toIso8601String(),
+        ]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'payments' => $formattedPayments,
+            ]);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Payments', [
+            'payments' => $formattedPayments,
         ]);
     }
 
@@ -60,18 +68,22 @@ class PaymentController extends Controller
             'paid_at'               => $validated['paid_at'] ?? null,
         ]);
 
-        return response()->json([
-            'message' => 'Payment recorded successfully.',
-            'payment' => [
-                'id'                    => $payment->id,
-                'order_id'              => $payment->order_id,
-                'amount'                => (float) $payment->amount,
-                'method'                => $payment->method,
-                'status'                => $payment->status,
-                'transaction_reference' => $payment->transaction_reference,
-                'paid_at'               => $payment->paid_at?->toIso8601String(),
-                'created_at'            => $payment->created_at?->toIso8601String(),
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Payment recorded successfully.',
+                'payment' => [
+                    'id'                    => $payment->id,
+                    'order_id'              => $payment->order_id,
+                    'amount'                => (float) $payment->amount,
+                    'method'                => $payment->method,
+                    'status'                => $payment->status,
+                    'transaction_reference' => $payment->transaction_reference,
+                    'paid_at'               => $payment->paid_at?->toIso8601String(),
+                    'created_at'            => $payment->created_at?->toIso8601String(),
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Payment recorded successfully.');
     }
 }

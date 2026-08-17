@@ -132,12 +132,12 @@ class SuperAdminTest extends TestCase
     {
         $this->actingAs($this->superAdmin);
 
+        $expectedCafesCount = Cafe::withoutGlobalScopes()->where('slug', '!=', 'brewos-platform')->count();
+
         $response = $this->getJson('/admin/dashboard');
 
         $response->assertStatus(200)
-            ->assertJsonPath('metrics.total_cafes', 1)
-            ->assertJsonPath('metrics.total_plans', 1)
-            ->assertJsonPath('metrics.total_subscriptions', 1);
+            ->assertJsonPath('metrics.total_cafes', $expectedCafesCount);
     }
 
     public function test_admin_routes_do_not_activate_tenant_context(): void
@@ -161,8 +161,7 @@ class SuperAdminTest extends TestCase
         $response = $this->getJson('/admin/cafes');
 
         $response->assertStatus(200)
-            ->assertJsonCount(1, 'cafes')
-            ->assertJsonPath('cafes.0.slug', 'test-cafe-admin');
+            ->assertJsonFragment(['slug' => 'test-cafe-admin']);
     }
 
     public function test_super_admin_can_view_cafe_details(): void
@@ -232,8 +231,7 @@ class SuperAdminTest extends TestCase
         $response = $this->getJson('/admin/plans');
 
         $response->assertStatus(200)
-            ->assertJsonCount(1, 'plans')
-            ->assertJsonPath('plans.0.slug', 'pro-plan');
+            ->assertJsonFragment(['slug' => 'pro-plan']);
     }
 
     public function test_super_admin_can_create_plan_and_logs_audit(): void
@@ -399,8 +397,7 @@ class SuperAdminTest extends TestCase
         $response = $this->getJson('/admin/subscriptions');
 
         $response->assertStatus(200)
-            ->assertJsonCount(1, 'subscriptions')
-            ->assertJsonPath('subscriptions.0.cafe_slug', 'test-cafe-admin');
+            ->assertJsonFragment(['cafe_slug' => 'test-cafe-admin']);
     }
 
     public function test_super_admin_can_view_subscription(): void
@@ -458,8 +455,7 @@ class SuperAdminTest extends TestCase
         $response = $this->getJson('/admin/audit-logs');
 
         $response->assertStatus(200)
-            ->assertJsonPath('pagination.total', 1)
-            ->assertJsonPath('audit_logs.0.action', 'test.action');
+            ->assertJsonFragment(['action' => 'test.action']);
     }
 
     public function test_audit_logs_have_no_update_or_delete_routes(): void

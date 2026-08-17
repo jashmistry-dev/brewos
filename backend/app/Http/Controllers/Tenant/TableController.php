@@ -23,14 +23,15 @@ class TableController extends Controller
         protected EntitlementService $entitlementService
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'table.view');
 
         $tenantContext = app(TenantContext::class);
         $cafeId = $tenantContext->getCafeId();
 
-        $branchIds = Branch::where('cafe_id', $cafeId)->pluck('id');
+        $allBranches = Branch::where('cafe_id', $cafeId)->get(['id', 'name']);
+        $branchIds = $allBranches->pluck('id');
 
         $query = RestaurantTable::whereIn('branch_id', $branchIds);
 
@@ -45,19 +46,28 @@ class TableController extends Controller
 
         $tables = $query->orderBy('name', 'asc')->get();
 
-        return response()->json([
-            'tables' => $tables->map(fn ($t) => [
-                'id' => $t->id,
-                'branch_id' => $t->branch_id,
-                'name' => $t->name,
-                'capacity' => $t->capacity,
-                'status' => $t->status,
-                'qr_token' => $t->qr_token,
-            ]),
+        $formattedTables = $tables->map(fn ($t) => [
+            'id' => $t->id,
+            'branch_id' => $t->branch_id,
+            'name' => $t->name,
+            'capacity' => $t->capacity,
+            'status' => $t->status,
+            'qr_token' => $t->qr_token,
+        ]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'tables' => $formattedTables,
+            ]);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Tables', [
+            'tables' => $formattedTables,
+            'branches' => $allBranches->map(fn ($b) => ['id' => $b->id, 'name' => $b->name]),
         ]);
     }
 
-    public function store(StoreTableRequest $request): JsonResponse
+    public function store(StoreTableRequest $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         Gate::authorize('permission', 'table.create');
 
@@ -78,40 +88,48 @@ class TableController extends Controller
             ]);
         });
 
-        return response()->json([
-            'message' => 'Table created successfully.',
-            'table' => [
-                'id' => $table->id,
-                'branch_id' => $table->branch_id,
-                'name' => $table->name,
-                'capacity' => $table->capacity,
-                'status' => $table->status,
-                'qr_token' => $table->qr_token,
-            ],
-        ], Response::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Table created successfully.',
+                'table' => [
+                    'id' => $table->id,
+                    'branch_id' => $table->branch_id,
+                    'name' => $table->name,
+                    'capacity' => $table->capacity,
+                    'status' => $table->status,
+                    'qr_token' => $table->qr_token,
+                ],
+            ], Response::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Table created successfully.');
     }
 
-    public function update(UpdateTableRequest $request, string $cafe_slug, int|string $table_id): JsonResponse
+    public function update(UpdateTableRequest $request, string $cafe_slug, int|string $table_id): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         Gate::authorize('permission', 'table.update');
 
         $table = $this->findTableForTenant($table_id);
         $table->update($request->validated());
 
-        return response()->json([
-            'message' => 'Table updated successfully.',
-            'table' => [
-                'id' => $table->id,
-                'branch_id' => $table->branch_id,
-                'name' => $table->name,
-                'capacity' => $table->capacity,
-                'status' => $table->status,
-                'qr_token' => $table->qr_token,
-            ],
-        ]);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Table updated successfully.',
+                'table' => [
+                    'id' => $table->id,
+                    'branch_id' => $table->branch_id,
+                    'name' => $table->name,
+                    'capacity' => $table->capacity,
+                    'status' => $table->status,
+                    'qr_token' => $table->qr_token,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Table updated successfully.');
     }
 
-    public function regenerateQrToken(string $cafe_slug, int|string $table_id): JsonResponse
+    public function regenerateQrToken(string $cafe_slug, int|string $table_id): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         Gate::authorize('permission', 'table.update');
 
@@ -120,22 +138,30 @@ class TableController extends Controller
             'qr_token' => RestaurantTable::generateQrToken(),
         ]);
 
-        return response()->json([
-            'message' => 'QR token regenerated successfully.',
-            'qr_token' => $table->qr_token,
-        ]);
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'QR token regenerated successfully.',
+                'qr_token' => $table->qr_token,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'QR token regenerated successfully.');
     }
 
-    public function destroy(string $cafe_slug, int|string $table_id): JsonResponse
+    public function destroy(string $cafe_slug, int|string $table_id): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         Gate::authorize('permission', 'table.delete');
 
         $table = $this->findTableForTenant($table_id);
         $table->delete();
 
-        return response()->json([
-            'message' => 'Table deleted successfully.',
-        ]);
+        if (request()->wantsJson() && ! request()->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Table deleted successfully.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Table deleted successfully.');
     }
 
     private function findTableForTenant(int|string $tableId): RestaurantTable

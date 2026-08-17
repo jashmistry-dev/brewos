@@ -49,15 +49,21 @@ Route::get('/', function () {
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);
-    Route::get('/register-cafe', [CafeRegistrationController::class, 'create'])->name('tenant.register.show');
-    Route::post('/register-cafe', [CafeRegistrationController::class, 'store'])->name('tenant.register');
 });
+
+Route::get('/register-cafe', [CafeRegistrationController::class, 'create'])->name('tenant.register.show');
+Route::post('/register-cafe', [CafeRegistrationController::class, 'store'])->middleware('throttle:10,1')->name('tenant.register');
 Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth:web')->name('logout');
 
-// Public QR Ordering Endpoints (Unauthenticated, Rate-limited 60 requests/min/IP)
-Route::middleware(['throttle:60,1'])->prefix('public/qr')->group(function () {
-    Route::get('/{qr_token}/menu', [PublicOrderController::class, 'menu'])->name('public.qr.menu');
-    Route::post('/{qr_token}/orders', [PublicOrderController::class, 'store'])->name('public.qr.orders');
+// Public Customer QR Ordering Routes (Unauthenticated, Rate-limited 60 requests/min/IP)
+Route::middleware(['throttle:60,1'])->group(function () {
+    Route::get('/order/c/{cafe_slug}/t/{qr_token}', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'showMenu'])->name('public.customer.order_menu');
+    Route::post('/order/submit', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'submitOrder'])->name('public.customer.submit_order');
+    Route::get('/order/status/{order_number}', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'orderStatus'])->name('public.customer.order_status');
+    Route::post('/order/request', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'createCustomerRequest'])->name('public.customer.create_request');
+
+    Route::get('/public/qr/{qr_token}/menu', [PublicOrderController::class, 'menu'])->name('public.qr.menu');
+    Route::post('/public/qr/{qr_token}/orders', [PublicOrderController::class, 'store'])->name('public.qr.orders');
 });
 
 Route::middleware(['auth:web', 'tenant', 'tenant_active'])->prefix('cafes/{cafe_slug}')->group(function () {
@@ -95,6 +101,9 @@ Route::middleware(['auth:web', 'tenant', 'tenant_active'])->prefix('cafes/{cafe_
     Route::get('/settings', [CafeSettingsController::class, 'show'])->name('tenant.settings.show');
     Route::put('/settings', [CafeSettingsController::class, 'update'])->name('tenant.settings.update');
 
+    Route::get('/onboarding', [\App\Http\Controllers\Tenant\OnboardingController::class, 'show'])->name('tenant.onboarding.show');
+    Route::post('/onboarding', [\App\Http\Controllers\Tenant\OnboardingController::class, 'update'])->name('tenant.onboarding.update');
+
     Route::get('/branches', [BranchController::class, 'index'])->name('tenant.branches.index');
     Route::post('/branches', [BranchController::class, 'store'])->name('tenant.branches.store');
     Route::put('/branches/{branch_id}', [BranchController::class, 'update'])->name('tenant.branches.update');
@@ -124,6 +133,11 @@ Route::middleware(['auth:web', 'tenant', 'tenant_active'])->prefix('cafes/{cafe_
     Route::get('/orders', [OrderController::class, 'index'])->name('tenant.orders.index');
     Route::get('/orders/{order_id}', [OrderController::class, 'show'])->name('tenant.orders.show');
     Route::patch('/orders/{order_id}/status', [OrderController::class, 'updateStatus'])->name('tenant.orders.update_status');
+    Route::post('/orders/{order_id}/confirm-payment', [OrderController::class, 'confirmPayment'])->name('tenant.orders.confirm_payment');
+
+    Route::get('/customer-requests', [OrderController::class, 'customerRequests'])->name('tenant.customer_requests.index');
+    Route::patch('/customer-requests/{request_id}/acknowledge', [OrderController::class, 'acknowledgeCustomerRequest'])->name('tenant.customer_requests.acknowledge');
+    Route::post('/customer-requests/{request_id}/acknowledge', [OrderController::class, 'acknowledgeCustomerRequest']);
 
     Route::get('/kitchen-display', [KitchenDisplayController::class, 'index'])->name('tenant.kitchen_display.index');
 
@@ -162,6 +176,7 @@ Route::middleware(['auth:web', 'tenant', 'tenant_active'])->prefix('cafes/{cafe_
 Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin')->group(function () {
     // Dashboard
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/revenue', [\App\Http\Controllers\Admin\AdminRevenueController::class, 'index'])->name('admin.revenue.index');
 
     // Cafe Management
     Route::get('/cafes', [AdminCafeController::class, 'index'])->name('admin.cafes.index');
@@ -171,7 +186,12 @@ Route::middleware(['auth:web', 'super_admin', 'throttle:120,1'])->prefix('admin'
     Route::post('/cafes/{cafe_id}/subscription/extend', [AdminCafeController::class, 'extendSubscription'])->name('admin.cafes.subscription.extend');
     Route::post('/cafes/{cafe_id}/subscription/change-plan', [AdminCafeController::class, 'changePlan'])->name('admin.cafes.subscription.change_plan');
     Route::post('/cafes/{cafe_id}/subscription/reactivate', [AdminCafeController::class, 'reactivateSubscription'])->name('admin.cafes.subscription.reactivate');
+    Route::post('/cafes/{cafe_id}/subscription/cancel', [AdminCafeController::class, 'cancelSubscription'])->name('admin.cafes.subscription.cancel');
     Route::delete('/cafes/{cafe_id}', [AdminCafeController::class, 'destroy'])->name('admin.cafes.destroy');
+
+    // Profile & Security
+    Route::get('/profile', [\App\Http\Controllers\Admin\ProfileController::class, 'show'])->name('admin.profile.show');
+    Route::put('/profile/password', [\App\Http\Controllers\Admin\ProfileController::class, 'updatePassword'])->name('admin.profile.update_password');
 
     // Plan Management
     Route::get('/plans', [PlanController::class, 'index'])->name('admin.plans.index');

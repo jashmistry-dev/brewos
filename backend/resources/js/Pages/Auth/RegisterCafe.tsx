@@ -42,7 +42,7 @@ export default function RegisterCafe() {
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-extrabold text-amber-600 tracking-tight">☕ BrewOS</h1>
                     <p className="mt-2 text-sm text-stone-600 font-medium">
-                        Create your multi-tenant cafe workspace in seconds
+                        Create your multi-tenant cafe workspace & start 14-day Free Trial
                     </p>
                 </div>
 
@@ -64,15 +64,14 @@ export default function RegisterCafe() {
                             onChange={(e) => setData('slug', e.target.value)}
                             error={errors.slug}
                             placeholder="artisan-roast"
-                            helperText="Used in your custom cafe URL"
+                            helperText="Used in custom cafe URL"
                         />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input
-                            label="Cafe Business Email"
+                            label="Cafe Business Email (Optional)"
                             type="email"
-                            required
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
                             error={errors.email}
@@ -102,13 +101,14 @@ export default function RegisterCafe() {
                         />
 
                         <Input
-                            label="Owner Login Email"
+                            label="Owner Account Login Email"
                             type="email"
                             required
                             value={data.owner_email}
                             onChange={(e) => setData('owner_email', e.target.value)}
                             error={errors.owner_email}
                             placeholder="jane@artisanroast.com"
+                            helperText="THIS email is used to log in"
                         />
                     </div>
 
@@ -141,7 +141,7 @@ export default function RegisterCafe() {
                         className="w-full mt-4"
                         isLoading={processing}
                     >
-                        Register Cafe & Launch Workspace
+                        Register Cafe & Launch 14-Day Free Trial
                     </Button>
                 </form>
 

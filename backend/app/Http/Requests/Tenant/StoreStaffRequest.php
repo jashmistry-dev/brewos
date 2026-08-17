@@ -60,14 +60,4 @@ class StoreStaffRequest extends FormRequest
             'status' => ['sometimes', 'string', 'in:active,suspended,inactive'],
         ];
     }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            $cafeId = app(TenantContext::class)->getCafeId();
-            if ($cafeId && app(\App\Services\PlanLimitService::class)->hasReachedStaffLimit($cafeId)) {
-                $validator->errors()->add('staff', 'Staff member limit reached for your active subscription plan.');
-            }
-        });
-    }
 }

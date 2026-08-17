@@ -16,11 +16,20 @@ class LoginRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('email') && is_string($this->email)) {
+            $this->merge([
+                'email' => trim(strtolower($this->email)),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string'],
         ];
     }
 

@@ -14,7 +14,7 @@ class DefaultTenantRolesService
             'permissions' => [
                 'cafe.view', 'cafe.update', 'cafe.settings.update',
                 'branch.view', 'branch.create', 'branch.update',
-                'staff.view', 'staff.create', 'staff.update', 'staff.delete',
+                'staff.view', 'branch.view', 'staff.create', 'staff.update', 'staff.delete',
                 'role.view', 'role.create', 'role.update', 'role.delete',
                 'menu.view', 'menu.create', 'menu.update', 'menu.delete',
                 'category.view', 'category.create', 'category.update', 'category.delete',
@@ -37,7 +37,7 @@ class DefaultTenantRolesService
                 'category.view',
                 'table.view', 'table.update',
                 'customer.view',
-                'staff.view',
+                'staff.view', 'branch.view',
                 'payment.view', 'payment.create',
                 'invoice.view', 'invoice.create', 'invoice.download',
                 'report.view',

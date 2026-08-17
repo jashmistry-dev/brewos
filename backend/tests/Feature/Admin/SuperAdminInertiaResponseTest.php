@@ -8,13 +8,13 @@ use App\Models\Plan;
 use App\Models\Role;
 use App\Models\Subscription;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class SuperAdminInertiaResponseTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected User $superAdmin;
     protected Cafe $cafe;
@@ -25,18 +25,21 @@ class SuperAdminInertiaResponseTest extends TestCase
     {
         parent::setUp();
 
-        $platformCafe = Cafe::withoutGlobalScopes()->create([
-            'name'   => 'BrewOS Platform',
-            'slug'   => 'brewos-platform',
-            'status' => 'active',
-        ]);
+        $platformCafe = Cafe::withoutGlobalScopes()->firstOrCreate(
+            ['slug' => Cafe::PLATFORM_SENTINEL_SLUG],
+            [
+                'name'   => 'BrewOS Platform',
+                'status' => 'active',
+            ]
+        );
 
-        $superAdminRole = Role::create([
-            'name'    => 'Super Admin',
-            'slug'    => 'super-admin',
-            'scope'   => 'platform',
-            'cafe_id' => null,
-        ]);
+        $superAdminRole = Role::firstOrCreate(
+            ['slug' => 'super-admin', 'scope' => 'platform'],
+            [
+                'name'    => 'Super Admin',
+                'cafe_id' => null,
+            ]
+        );
 
         $this->superAdmin = User::factory()->create([
             'name'   => 'Super Admin User',

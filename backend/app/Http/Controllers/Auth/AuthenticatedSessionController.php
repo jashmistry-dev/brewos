@@ -40,6 +40,11 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        if ($user->isSuperAdmin()) {
+            return redirect()->route('admin.dashboard')
+                ->with('success', 'Logged in successfully.');
+        }
+
         $cafeUser = CafeUser::where('user_id', $user->id)->with('cafe')->first();
 
         if ($cafeUser && $cafeUser->cafe) {

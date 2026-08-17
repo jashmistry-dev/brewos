@@ -185,12 +185,15 @@ class AdminCafeController extends Controller
 
         $branchLimit = isset($featuresMap['branch_limit']) ? ($featuresMap['branch_limit'] === 'unlimited' ? 'unlimited' : (int) $featuresMap['branch_limit']) : 'unlimited';
         $staffLimit  = isset($featuresMap['staff_limit']) ? ($featuresMap['staff_limit'] === 'unlimited' ? 'unlimited' : (int) $featuresMap['staff_limit']) : 'unlimited';
+        $tableLimit  = isset($featuresMap['table_limit']) ? ($featuresMap['table_limit'] === 'unlimited' ? 'unlimited' : (int) $featuresMap['table_limit']) : 'unlimited';
         $menuLimit   = isset($featuresMap['menu_item_limit']) ? ($featuresMap['menu_item_limit'] === 'unlimited' ? 'unlimited' : (int) $featuresMap['menu_item_limit']) : 'unlimited';
 
         // Revenue
         $cafeRevenue = \App\Models\Order::where('cafe_id', $cafe->id)
             ->where('payment_status', 'paid')
             ->sum('total');
+
+        $tableCount = \App\Models\RestaurantTable::whereHas('branch', fn ($q) => $q->where('cafe_id', $cafe->id))->count();
 
         // Lifecycle Audit Logs for this cafe
         $auditLogs = \App\Models\AuditLog::with('user:id,name,email')
@@ -245,9 +248,11 @@ class AdminCafeController extends Controller
             ] : null,
             'plans' => Plan::get(['id', 'name', 'slug', 'price', 'billing_interval']),
             'usage' => [
-                'branches' => ['current' => $cafe->branches_count, 'limit' => $branchLimit],
-                'staff'    => ['current' => $cafe->cafe_users_count, 'limit' => $staffLimit],
-                'menu'     => ['current' => $cafe->menu_items_count, 'limit' => $menuLimit],
+                'branches'   => ['current' => $cafe->branches_count, 'limit' => $branchLimit],
+                'staff'      => ['current' => $cafe->cafe_users_count, 'limit' => $staffLimit],
+                'tables'     => ['current' => $tableCount, 'limit' => $tableLimit],
+                'menu'       => ['current' => $cafe->menu_items_count, 'limit' => $menuLimit],
+                'menu_items' => ['current' => $cafe->menu_items_count, 'limit' => $menuLimit],
             ],
             'metrics' => [
                 'customers_count' => $cafe->customers_count,
@@ -358,11 +363,25 @@ class AdminCafeController extends Controller
         ]);
 
         $cafe = Cafe::findOrFail($cafe_id);
-        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->first();
+
+        if (! $sub) {
+            $defaultPlan = Plan::where('status', 'active')->first() ?? Plan::first();
+            $sub = new Subscription([
+                'cafe_id'   => $cafe->id,
+                'plan_id'   => $defaultPlan?->id,
+                'status'    => 'active',
+                'starts_at' => now(),
+                'provider'  => 'manual_override',
+            ]);
+        }
+
         $oldEndsAt = $sub->ends_at?->toIso8601String();
         $newEndsAt = \Carbon\Carbon::parse($request->input('new_ends_at'));
 
-        $sub->update(['ends_at' => $newEndsAt]);
+        $sub->ends_at = $newEndsAt;
+        $sub->status  = 'active';
+        $sub->save();
 
         $this->auditLogger->log(
             action: 'subscription.extended',
@@ -388,11 +407,33 @@ class AdminCafeController extends Controller
         ]);
 
         $cafe = Cafe::findOrFail($cafe_id);
-        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
-        $oldPlanId = $sub->plan_id;
         $newPlanId = (int) $request->input('plan_id');
+        $plan = Plan::findOrFail($newPlanId);
 
-        $sub->update(['plan_id' => $newPlanId]);
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->first();
+        $oldPlanId = $sub?->plan_id;
+
+        $endsAt = $plan->billing_interval === 'yearly' ? now()->addYear() : now()->addMonth();
+
+        if ($sub) {
+            $sub->update([
+                'plan_id'   => $newPlanId,
+                'status'    => 'active',
+                'starts_at' => now(),
+                'ends_at'   => $endsAt,
+                'provider'  => 'manual_override',
+            ]);
+        } else {
+            $sub = Subscription::create([
+                'cafe_id'                  => $cafe->id,
+                'plan_id'                  => $newPlanId,
+                'status'                   => 'active',
+                'starts_at'                => now(),
+                'ends_at'                  => $endsAt,
+                'provider'                 => 'manual_override',
+                'provider_subscription_id' => 'override_' . $cafe->slug . '_' . time(),
+            ]);
+        }
 
         $this->auditLogger->log(
             action: 'subscription.plan_changed',
@@ -404,10 +445,10 @@ class AdminCafeController extends Controller
         );
 
         if ($request->wantsJson() && ! $request->header('X-Inertia')) {
-            return response()->json(['message' => 'Subscription plan changed successfully.']);
+            return response()->json(['message' => 'Subscription plan assigned successfully.', 'subscription_id' => $sub->id]);
         }
 
-        return redirect()->back()->with('success', 'Subscription plan changed successfully.');
+        return redirect()->back()->with('success', "Subscription plan changed to {$plan->name}.");
     }
 
     public function reactivateSubscription(Request $request, int|string $cafe_id): JsonResponse|RedirectResponse
@@ -418,15 +459,25 @@ class AdminCafeController extends Controller
         ]);
 
         $cafe = Cafe::findOrFail($cafe_id);
-        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->first();
+
+        if (! $sub) {
+            $defaultPlan = Plan::where('status', 'active')->first() ?? Plan::first();
+            $sub = new Subscription([
+                'cafe_id'   => $cafe->id,
+                'plan_id'   => $defaultPlan?->id,
+                'provider'  => 'manual_override',
+            ]);
+        }
+
         $oldStatus = $sub->status;
         $oldEndsAt = $sub->ends_at?->toIso8601String();
         $newEndsAt = \Carbon\Carbon::parse($request->input('new_ends_at'));
 
-        $sub->update([
-            'status'  => 'active',
-            'ends_at' => $newEndsAt,
-        ]);
+        $sub->status    = 'active';
+        $sub->starts_at = $sub->starts_at ?? now();
+        $sub->ends_at   = $newEndsAt;
+        $sub->save();
 
         $this->auditLogger->log(
             action: 'subscription.reactivated',
@@ -442,5 +493,38 @@ class AdminCafeController extends Controller
         }
 
         return redirect()->back()->with('success', 'Subscription reactivated successfully.');
+    }
+
+    public function cancelSubscription(Request $request, int|string $cafe_id): JsonResponse|RedirectResponse
+    {
+        $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $cafe = Cafe::findOrFail($cafe_id);
+        $sub = Subscription::where('cafe_id', $cafe->id)->latest('id')->firstOrFail();
+
+        $oldStatus = $sub->status;
+        $oldEndsAt = $sub->ends_at?->toIso8601String();
+
+        $sub->update([
+            'status'  => 'cancelled',
+            'ends_at' => now(),
+        ]);
+
+        $this->auditLogger->log(
+            action: 'subscription.cancelled',
+            entityType: 'subscription',
+            entityId: $sub->id,
+            cafeId: $cafe->id,
+            oldValues: ['status' => $oldStatus, 'ends_at' => $oldEndsAt],
+            newValues: ['status' => 'cancelled', 'ends_at' => now()->toIso8601String(), 'reason' => $request->input('reason')]
+        );
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json(['message' => 'Subscription cancelled successfully.']);
+        }
+
+        return redirect()->back()->with('success', 'Subscription cancelled by Super Admin.');
     }
 }

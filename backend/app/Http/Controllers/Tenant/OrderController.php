@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Gate;
 
 class OrderController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'order.view');
 
@@ -32,21 +32,55 @@ class OrderController extends Controller
 
         $orders = $query->get();
 
-        return response()->json([
-            'orders' => $orders->map(fn ($o) => [
-                'id' => $o->id,
-                'branch_id' => $o->branch_id,
-                'table_id' => $o->table_id,
-                'table_name' => $o->table?->name,
-                'order_number' => $o->order_number,
-                'status' => $o->status,
-                'payment_status' => $o->payment_status,
-                'subtotal' => (float) $o->subtotal,
-                'tax' => (float) $o->tax,
-                'total' => (float) $o->total,
-                'created_at' => $o->created_at?->toIso8601String(),
-                'items_count' => $o->orderItems->count(),
+        $formattedOrders = $orders->map(fn ($o) => [
+            'id' => $o->id,
+            'branch_id' => $o->branch_id,
+            'table_id' => $o->table_id,
+            'table_name' => $o->table?->name,
+            'order_number' => $o->order_number,
+            'status' => $o->status,
+            'payment_status' => $o->payment_status,
+            'subtotal' => (float) $o->subtotal,
+            'tax' => (float) $o->tax,
+            'total' => (float) $o->total,
+            'created_at' => $o->created_at?->toIso8601String(),
+            'items_count' => $o->orderItems->count(),
+            'items' => $o->orderItems->map(fn ($oi) => [
+                'id' => $oi->id,
+                'name' => $oi->menuItem?->name,
+                'quantity' => $oi->quantity,
+                'unit_price' => (float) $oi->unit_price,
+                'total' => (float) $oi->total,
             ]),
+        ]);
+
+        $cafeId = app(\App\Services\TenantContext::class)->getCafeId();
+        $requests = \App\Models\CustomerRequest::where('cafe_id', $cafeId)
+            ->with(['table', 'branch'])
+            ->whereIn('status', ['pending', 'acknowledged'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $formattedRequests = $requests->map(fn ($r) => [
+            'id' => $r->id,
+            'table_name' => $r->table?->name,
+            'branch_name' => $r->branch?->name,
+            'request_type' => $r->request_type,
+            'status' => $r->status,
+            'notes' => $r->notes,
+            'created_at' => $r->created_at?->toIso8601String(),
+        ]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'orders' => $formattedOrders,
+                'customer_requests' => $formattedRequests,
+            ]);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Orders', [
+            'orders' => $formattedOrders,
+            'customer_requests' => $formattedRequests,
         ]);
     }
 
@@ -84,22 +118,107 @@ class OrderController extends Controller
         ]);
     }
 
-    public function updateStatus(UpdateOrderStatusRequest $request, string $cafe_slug, int|string $order_id): JsonResponse
+    public function updateStatus(UpdateOrderStatusRequest $request, string $cafe_slug, int|string $order_id): JsonResponse|\Illuminate\Http\RedirectResponse
     {
-        Gate::authorize('permission', 'order.update');
+        if (! (Gate::allows('permission', 'order.update') || Gate::allows('permission', 'order.kitchen.update'))) {
+            Gate::authorize('permission', 'order.update');
+        }
 
         $order = Order::findOrFail($order_id);
         $order->update([
             'status' => $request->validated('status'),
         ]);
 
-        return response()->json([
-            'message' => 'Order status updated successfully.',
-            'order' => [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'status' => $order->status,
-            ],
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Order status updated successfully.',
+                'order' => [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'status' => $order->status,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Order status updated successfully.');
+    }
+
+    public function confirmPayment(Request $request, string $cafe_slug, int|string $order_id): JsonResponse|\Illuminate\Http\RedirectResponse
+    {
+        Gate::authorize('permission', 'payment.create');
+
+        $request->validate([
+            'payment_method' => ['required', 'string', 'in:cash,upi,card'],
         ]);
+
+        $order = Order::findOrFail($order_id);
+
+        $orderingService = app(\App\Services\CustomerOrderingService::class);
+        $confirmedOrder = $orderingService->confirmCounterPayment($order, $request->input('payment_method'));
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Payment confirmed and order sent to kitchen.',
+                'order' => [
+                    'id' => $confirmedOrder->id,
+                    'order_number' => $confirmedOrder->order_number,
+                    'status' => $confirmedOrder->status,
+                    'payment_status' => $confirmedOrder->payment_status,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Payment confirmed and order sent to kitchen.');
+    }
+
+    public function customerRequests(Request $request): JsonResponse
+    {
+        Gate::authorize('permission', 'order.view');
+
+        $cafeId = app(\App\Services\TenantContext::class)->getCafeId();
+
+        $requests = \App\Models\CustomerRequest::where('cafe_id', $cafeId)
+            ->with(['table', 'branch'])
+            ->whereIn('status', ['pending', 'acknowledged'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'customer_requests' => $requests->map(fn ($r) => [
+                'id' => $r->id,
+                'table_name' => $r->table?->name,
+                'branch_name' => $r->branch?->name,
+                'request_type' => $r->request_type,
+                'status' => $r->status,
+                'notes' => $r->notes,
+                'created_at' => $r->created_at?->toIso8601String(),
+            ]),
+        ]);
+    }
+
+    public function acknowledgeCustomerRequest(Request $request, string $cafe_slug, int|string $request_id): JsonResponse|\Illuminate\Http\RedirectResponse
+    {
+        Gate::authorize('permission', 'order.update');
+
+        $cafeId = app(\App\Services\TenantContext::class)->getCafeId();
+
+        $custReq = \App\Models\CustomerRequest::where('cafe_id', $cafeId)
+            ->where('id', $request_id)
+            ->firstOrFail();
+
+        $status = $request->input('status', 'completed');
+        $custReq->update(['status' => $status]);
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Customer request updated successfully.',
+                'request' => [
+                    'id' => $custReq->id,
+                    'status' => $custReq->status,
+                ],
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Customer request updated successfully.');
     }
 }

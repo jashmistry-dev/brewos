@@ -14,14 +14,22 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 class InvoiceController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(\Illuminate\Http\Request $request): JsonResponse|\Inertia\Response
     {
         Gate::authorize('permission', 'invoice.view');
 
         $invoices = Invoice::with(['order'])->orderBy('created_at', 'desc')->get();
 
-        return response()->json([
-            'invoices' => $invoices->map(fn ($inv) => $this->formatInvoice($inv)),
+        $formattedInvoices = $invoices->map(fn ($inv) => $this->formatInvoice($inv));
+
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'invoices' => $formattedInvoices,
+            ]);
+        }
+
+        return \Inertia\Inertia::render('Tenant/Invoices', [
+            'invoices' => $formattedInvoices,
         ]);
     }
 
@@ -73,10 +81,14 @@ class InvoiceController extends Controller
 
         $invoice->load('order');
 
-        return response()->json([
-            'message' => 'Invoice created successfully.',
-            'invoice' => $this->formatInvoice($invoice),
-        ], HttpResponse::HTTP_CREATED);
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'message' => 'Invoice created successfully.',
+                'invoice' => $this->formatInvoice($invoice),
+            ], HttpResponse::HTTP_CREATED);
+        }
+
+        return redirect()->back()->with('success', 'Invoice created successfully.');
     }
 
     public function show(string $cafe_slug, int|string $invoice_id): JsonResponse

@@ -19,6 +19,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => 
     const navigation = [
         { name: 'Dashboard', href: '/admin/dashboard', pattern: '/admin/dashboard' },
         { name: 'Cafes', href: '/admin/cafes', pattern: '/admin/cafes*' },
+        { name: 'Revenue Insights', href: '/admin/revenue', pattern: '/admin/revenue*' },
         { name: 'Subscriptions', href: '/admin/subscriptions', pattern: '/admin/subscriptions*' },
         { name: 'Plans', href: '/admin/plans', pattern: '/admin/plans*' },
         { name: 'Audit Logs', href: '/admin/audit-logs', pattern: '/admin/audit-logs*' },
