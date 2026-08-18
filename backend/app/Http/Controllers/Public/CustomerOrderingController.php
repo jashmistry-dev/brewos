@@ -281,4 +281,92 @@ class CustomerOrderingController extends Controller
             ],
         ]);
     }
+
+    public function orderStatusJson(string $order_number): JsonResponse
+    {
+        $order = Order::withoutGlobalScopes()
+            ->where("public_order_number", $order_number)
+            ->orWhere("order_number", $order_number)
+            ->orWhere("id", $order_number)
+            ->with(["cafe", "branch", "table", "orderItems.menuItem"])
+            ->first();
+
+        if (!$order) {
+            return response()->json(["message" => "Order not found"], 404);
+        }
+
+        return response()->json([
+            "order" => [
+                "id"             => $order->id,
+                "order_number"   => (string) ($order->public_order_number ?? $order->order_number),
+                "cafe_name"      => $order->cafe?->name,
+                "cafe_slug"      => $order->cafe?->slug,
+                "branch_name"    => $order->branch?->name,
+                "table_name"     => $order->table?->name,
+                "status"         => $order->status,
+                "payment_status" => $order->payment_status,
+                "subtotal"       => (float) $order->subtotal,
+                "tax"            => (float) $order->tax,
+                "total"          => (float) $order->total,
+                "customer_name"  => $order->customer_name,
+                "customer_phone" => $order->customer_phone,
+                "created_at"     => $order->created_at?->toIso8601String(),
+                "items"          => $order->orderItems->map(fn ($item) => [
+                    "id"         => $item->id,
+                    "name"       => $item->menuItem?->name ?? "Item",
+                    "quantity"   => (int) $item->quantity,
+                    "unit_price" => (float) $item->unit_price,
+                    "total"      => (float) $item->total,
+                ])->toArray(),
+            ]
+        ]);
+    }
+
+    public function publicInvoice(string $order_number): \Illuminate\Http\Response|JsonResponse
+    {
+        $order = Order::withoutGlobalScopes()
+            ->where("public_order_number", $order_number)
+            ->orWhere("order_number", $order_number)
+            ->orWhere("id", $order_number)
+            ->with(["cafe", "branch", "table", "orderItems.menuItem", "payments"])
+            ->first();
+
+        if (!$order) {
+            return response()->json(["message" => "Order or Invoice not found"], 404);
+        }
+
+        $invoice = \App\Models\Invoice::withoutGlobalScopes()
+            ->where("order_id", $order->id)
+            ->first();
+
+        if (!$invoice) {
+            $invNum = "INV-" . str_pad($order->public_order_number ?? $order->id, 5, "0", STR_PAD_LEFT);
+            $invoice = \App\Models\Invoice::create([
+                "cafe_id"        => $order->cafe_id,
+                "order_id"       => $order->id,
+                "invoice_number" => $invNum,
+                "subtotal"       => $order->subtotal,
+                "tax"            => $order->tax,
+                "discount"       => $order->discount,
+                "total"          => $order->total,
+                "status"         => ($order->payment_status === "paid") ? "paid" : "issued",
+                "issued_at"      => $order->created_at ?? now(),
+            ]);
+            $invoice->load(["cafe", "order"]);
+        } else {
+            $invoice->setRelation("order", $order);
+            $invoice->setRelation("cafe", $order->cafe);
+        }
+
+        $invCtrl = app(\App\Http\Controllers\Tenant\InvoiceController::class);
+        $refMethod = new \ReflectionMethod($invCtrl, "renderInvoiceHtml");
+        $refMethod->setAccessible(true);
+        $html = $refMethod->invoke($invCtrl, $invoice);
+
+        return response($html, 200, [
+            "Content-Type"        => "text/html; charset=utf-8",
+            "Content-Disposition" => "inline; filename=\"invoice-" . ($order->public_order_number ?? $order->order_number) . ".html\"",
+        ]);
+    }
+
 }

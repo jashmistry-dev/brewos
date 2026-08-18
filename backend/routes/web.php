@@ -57,6 +57,8 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->midd
 
 // Public Customer QR Ordering Routes (Unauthenticated, Rate-limited 60 requests/min/IP)
 Route::middleware(['throttle:60,1'])->group(function () {
+    Route::get('/order/status-json/{order_number}', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'orderStatusJson'])->name('public.customer.order_status_json');
+    Route::get('/order/invoice/{order_number}', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'publicInvoice'])->name('public.customer.order_invoice');
     Route::get('/order/c/{cafe_slug}/t/{qr_token}', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'showMenu'])->name('public.customer.order_menu');
     Route::post('/order/submit', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'submitOrder'])->name('public.customer.submit_order');
     Route::get('/order/status/{order_number}', [\App\Http\Controllers\Public\CustomerOrderingController::class, 'orderStatus'])->name('public.customer.order_status');

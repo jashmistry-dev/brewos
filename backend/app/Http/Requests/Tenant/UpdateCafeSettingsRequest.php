@@ -15,6 +15,9 @@ class UpdateCafeSettingsRequest extends FormRequest
     {
         return [
             'name'        => ['required', 'string', 'max:255'],
+            'logo'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,svg', 'max:5120'],
+            'logo_base64' => ['nullable', 'string'],
+            'remove_logo' => ['nullable', 'boolean'],
             'email'       => ['required', 'string', 'email', 'max:255'],
             'phone'       => ['nullable', 'string', 'max:50'],
             'status'      => ['sometimes', 'string', 'in:active,inactive'],

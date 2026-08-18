@@ -94,6 +94,17 @@ export default function CustomerOrder({
     const pageProps = usePage().props as any;
     const serverActiveOrder = pageProps?.active_order?.order_number;
 
+    const [activeOrdersList, setActiveOrdersList] = useState<any[]>(() => {
+        if (typeof window === 'undefined') return [];
+        const cafeSlug = cafe?.slug;
+        if (!cafeSlug) return [];
+        const saved = localStorage.getItem(`brewos_active_orders_${cafeSlug}`);
+        if (saved) {
+            try { return JSON.parse(saved) || []; } catch (e) { return []; }
+        }
+        return [];
+    });
+
     const [activeOrderNumber, setActiveOrderNumber] = useState<string | null>(() => {
         if (serverActiveOrder) return serverActiveOrder;
         if (typeof window === 'undefined') return null;
@@ -215,11 +226,20 @@ export default function CustomerOrder({
                 setIsCartOpen(false);
                 setOrderSuccess(data.order);
                 if (data.order?.order_number) {
+                    const newOrd = {
+                        id: data.order.id || Date.now(),
+                        order_number: data.order.order_number,
+                        status: data.order.status || 'placed',
+                        created_at: Date.now(),
+                    };
+                    const updatedList = [newOrd, ...activeOrdersList.filter((o: any) => o.order_number !== data.order.order_number)];
+                    localStorage.setItem(`brewos_active_orders_${cafe.slug}`, JSON.stringify(updatedList));
+                    setActiveOrdersList(updatedList);
+
                     const activePayload = JSON.stringify({
                         order_number: data.order.order_number,
                         created_at: Date.now(),
                     });
-                    localStorage.setItem(`brewos_active_order_${cafe.slug}_${table.qr_token}`, activePayload);
                     localStorage.setItem(`brewos_active_order_${cafe.slug}`, activePayload);
                     setActiveOrderNumber(data.order.order_number);
                 }
@@ -314,41 +334,36 @@ export default function CustomerOrder({
             {/* Main Ordering Area */}
             <main className="max-w-md mx-auto w-full px-4 pt-4 flex-1 space-y-4">
                 {/* Active Orders List Banner */}
-                {((pageProps.active_orders && pageProps.active_orders.length > 0) || activeOrderNumber) && (
+                {((pageProps.active_orders && pageProps.active_orders.length > 0) || activeOrdersList.length > 0 || activeOrderNumber) && (
                     <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow-lg space-y-3">
                         <div className="flex items-center justify-between border-b border-stone-800 pb-2">
-                            <span className="text-xs font-bold text-stone-200 uppercase tracking-wider">📦 Active Orders</span>
+                            <span className="text-xs font-bold text-stone-200 uppercase tracking-wider">📦 Your Active Orders</span>
                             <span className="text-[10px] bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded-full">
-                                {(pageProps.active_orders && pageProps.active_orders.length) || 1} Active
+                                {(pageProps.active_orders?.length) || activeOrdersList.length || 1} Active
                             </span>
                         </div>
                         <div className="space-y-2">
-                            {pageProps.active_orders && pageProps.active_orders.length > 0 ? (
-                                pageProps.active_orders.map((ord: any) => (
-                                    <div key={ord.id} className="flex items-center justify-between bg-stone-950 p-2.5 rounded-xl border border-stone-800">
-                                        <div>
-                                            <span className="text-xs font-mono font-bold text-amber-400">#{ord.order_number}</span>
+                            {(pageProps.active_orders && pageProps.active_orders.length > 0
+                                ? pageProps.active_orders
+                                : activeOrdersList.length > 0
+                                ? activeOrdersList
+                                : [{ order_number: activeOrderNumber, status: 'placed' }]
+                            ).map((ord: any) => (
+                                <div key={ord.order_number || ord.id} className="flex items-center justify-between bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                                    <div>
+                                        <span className="text-xs font-mono font-bold text-amber-400">Order #{ord.order_number}</span>
+                                        {ord.status && (
                                             <span className="text-[10px] ml-2 text-stone-400 capitalize">({ord.status.replace(/_/g, ' ')})</span>
-                                        </div>
-                                        <a
-                                            href={`/order/status/${ord.order_number}`}
-                                            className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[11px] px-3 py-1 rounded-lg transition-colors"
-                                        >
-                                            Track Status &rarr;
-                                        </a>
+                                        )}
                                     </div>
-                                ))
-                            ) : (
-                                <div className="flex items-center justify-between bg-stone-950 p-2.5 rounded-xl border border-stone-800">
-                                    <span className="text-xs font-mono font-bold text-amber-400">#{activeOrderNumber}</span>
                                     <a
-                                        href={`/order/status/${activeOrderNumber}`}
-                                        className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[11px] px-3 py-1 rounded-lg transition-colors"
+                                        href={`/order/status/${ord.order_number}`}
+                                        className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[11px] px-3 py-1 rounded-lg transition-colors shadow-sm"
                                     >
-                                        Track Status &rarr;
+                                        Track Order #{ord.order_number} &rarr;
                                     </a>
                                 </div>
-                            )}
+                            ))}
                         </div>
                     </div>
                 )}

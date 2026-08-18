@@ -71,20 +71,38 @@ class CafeSettingsController extends Controller
 
         $cafe = app(TenantContext::class)->getCafe();
         $validated = $request->validated();
-        if (isset($validated['logo_url']) && !empty($validated['logo_url'])) {
-            $validated['logo_path'] = $validated['logo_url'];
-        }
-        unset($validated['logo_url']);
+        $diskName = config('filesystems.default', 'public');
 
-        if ($request->hasFile('logo')) {
-            $diskName = config('filesystems.default', 'public');
-            if ($cafe->logo_path) {
+        if ($request->boolean('remove_logo')) {
+            if ($cafe->logo_path && !str_starts_with($cafe->logo_path, 'http')) {
+                Storage::disk($diskName)->delete($cafe->logo_path);
+            }
+            $validated['logo_path'] = null;
+        } elseif ($request->input('logo_base64')) {
+            $base64Str = $request->input('logo_base64');
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64Str, $type)) {
+                $data = substr($base64Str, strpos($base64Str, ',') + 1);
+                $ext = strtolower($type[1]);
+                if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp'])) {
+                    $decoded = base64_decode($data);
+                    $fileName = 'cafe_logos/' . uniqid('logo_') . '.' . $ext;
+                    Storage::disk($diskName)->put($fileName, $decoded);
+                    if ($cafe->logo_path && !str_starts_with($cafe->logo_path, 'http')) {
+                        Storage::disk($diskName)->delete($cafe->logo_path);
+                    }
+                    $validated['logo_path'] = $fileName;
+                }
+            }
+        } elseif ($request->hasFile('logo')) {
+            if ($cafe->logo_path && !str_starts_with($cafe->logo_path, 'http')) {
                 Storage::disk($diskName)->delete($cafe->logo_path);
             }
             $validated['logo_path'] = $request->file('logo')->store('cafe_logos', $diskName);
+        } elseif (isset($validated['logo_url']) && !empty($validated['logo_url'])) {
+            $validated['logo_path'] = $validated['logo_url'];
         }
 
-        unset($validated['logo']);
+        unset($validated['logo_url'], $validated['logo'], $validated['logo_base64'], $validated['remove_logo']);
 
         $cafe->update($validated);
 

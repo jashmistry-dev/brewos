@@ -82,7 +82,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, title }) => {
                 { name: 'Reports', href: `/cafes/${cafeSlug}/reports/sales`, icon: '📈', show: hasPermission('report.view') },
                 { name: 'Analytics', href: `/cafes/${cafeSlug}/analytics/customers`, icon: '🎯', show: hasPermission('report.view') },
                 { name: 'Cafe Settings', href: `/cafes/${cafeSlug}/settings`, icon: '⚙️', show: hasPermission('cafe.view') || hasPermission('cafe.settings.update') },
-                { name: 'Subscription', href: `/cafes/${cafeSlug}/subscription`, icon: '👑', show: hasPermission('subscription.view') },
+                { name: 'Subscription', href: cafeSlug ? `/cafes/${cafeSlug}/subscription` : '/subscription', icon: '👑', show: hasPermission('subscription.view') },
             ],
         },
     ];
