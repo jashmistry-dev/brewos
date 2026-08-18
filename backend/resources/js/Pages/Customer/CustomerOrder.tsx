@@ -297,9 +297,21 @@ export default function CustomerOrder({
                 <div className="max-w-md mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {cafe.logo_url ? (
-                            <img src={cafe.logo_url} alt={cafe.name} className="w-10 h-10 rounded-full object-cover border border-amber-500/30" />
+                            <div className="w-14 h-14 bg-stone-900/80 rounded-xl border border-stone-700 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
+                                <img
+                                    src={cafe.logo_url}
+                                    alt={cafe.name}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                        if ((e.target as HTMLElement).parentElement) {
+                                            (e.target as HTMLElement).parentElement!.innerHTML = '<span class="text-xl">☕</span>';
+                                        }
+                                    }}
+                                />
+                            </div>
                         ) : (
-                            <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-lg border border-amber-500/20">
+                            <div className="w-14 h-14 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xl border border-amber-500/20 shrink-0">
                                 ☕
                             </div>
                         )}
