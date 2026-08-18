@@ -164,7 +164,9 @@ class CustomerOrderingService
             $taxAmount = round($subtotal * ($taxRate / 100), 2);
             $totalAmount = round($subtotal + $taxAmount, 2);
 
-            $orderNumber = 'ORD-' . strtoupper(substr(md5(uniqid()), 0, 6));
+            $maxNum = Order::withoutGlobalScopes()->where('cafe_id', $session->cafe_id)->max('public_order_number');
+            $publicOrderNumber = max(1001, ((int) $maxNum) + 1);
+            $orderNumber = (string) $publicOrderNumber;
 
             $isPaymentRequired = (bool) $cafe->require_payment_before_kitchen;
             $initialStatus = $isPaymentRequired ? 'payment_pending' : 'kitchen_pending';
@@ -180,6 +182,9 @@ class CustomerOrderingService
                 'table_id'            => $session->table_id,
                 'ordering_session_id' => $session->id,
                 'order_number'        => $orderNumber,
+                'public_order_number' => $publicOrderNumber,
+                'customer_name'       => $session->customer_name,
+                'customer_phone'      => $session->customer_phone,
                 'order_type'          => 'dine_in_qr',
                 'status'              => $initialStatus,
                 'payment_status'      => $paymentStatus,
@@ -208,6 +213,29 @@ class CustomerOrderingService
                 ]);
             }
 
+                        // Sync invoice status upon counter payment confirmation
+            $inv = \App\Models\Invoice::withoutGlobalScopes()->where('order_id', $order->id)->first();
+            if ($inv) {
+                $inv->update(['status' => 'paid']);
+            } else {
+                $invNum = 'INV-' . str_pad($order->public_order_number ?? $order->id, 5, '0', STR_PAD_LEFT);
+                $numExists = \App\Models\Invoice::withoutGlobalScopes()->where('cafe_id', $order->cafe_id)->where('invoice_number', $invNum)->exists();
+                if ($numExists) {
+                    $invNum = 'INV-' . str_pad($order->public_order_number ?? $order->id, 5, '0', STR_PAD_LEFT) . '-' . $order->id;
+                }
+                \App\Models\Invoice::create([
+                    'cafe_id'        => $order->cafe_id,
+                    'order_id'       => $order->id,
+                    'invoice_number' => $invNum,
+                    'subtotal'       => $order->subtotal,
+                    'tax'            => $order->tax,
+                    'discount'       => $order->discount,
+                    'total'          => $order->total,
+                    'status'         => 'paid',
+                    'issued_at'      => now(),
+                ]);
+            }
+
             return $order;
         });
     }
@@ -232,6 +260,29 @@ class CustomerOrderingService
                 'transaction_reference' => 'tx_counter_' . time(),
                 'paid_at'               => now(),
             ]);
+
+                        // Sync invoice status upon counter payment confirmation
+            $inv = \App\Models\Invoice::withoutGlobalScopes()->where('order_id', $order->id)->first();
+            if ($inv) {
+                $inv->update(['status' => 'paid']);
+            } else {
+                $invNum = 'INV-' . str_pad($order->public_order_number ?? $order->id, 5, '0', STR_PAD_LEFT);
+                $numExists = \App\Models\Invoice::withoutGlobalScopes()->where('cafe_id', $order->cafe_id)->where('invoice_number', $invNum)->exists();
+                if ($numExists) {
+                    $invNum = 'INV-' . str_pad($order->public_order_number ?? $order->id, 5, '0', STR_PAD_LEFT) . '-' . $order->id;
+                }
+                \App\Models\Invoice::create([
+                    'cafe_id'        => $order->cafe_id,
+                    'order_id'       => $order->id,
+                    'invoice_number' => $invNum,
+                    'subtotal'       => $order->subtotal,
+                    'tax'            => $order->tax,
+                    'discount'       => $order->discount,
+                    'total'          => $order->total,
+                    'status'         => 'paid',
+                    'issued_at'      => now(),
+                ]);
+            }
 
             return $order;
         });

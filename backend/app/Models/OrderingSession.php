@@ -20,6 +20,9 @@ class OrderingSession extends Model
         'qr_token_used',
         'ip_address',
         'user_agent',
+        'customer_name',
+        'customer_phone',
+        'mobile_verified',
         'status',
         'expires_at',
     ];

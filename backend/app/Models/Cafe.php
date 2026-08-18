@@ -78,6 +78,10 @@ class Cafe extends Model
             return null;
         }
 
+        if (filter_var($this->logo_path, FILTER_VALIDATE_URL) || str_starts_with($this->logo_path, 'http://') || str_starts_with($this->logo_path, 'https://')) {
+            return $this->logo_path;
+        }
+
         $diskName = config('filesystems.default', 'public');
         return Storage::disk($diskName)->url($this->logo_path);
     }

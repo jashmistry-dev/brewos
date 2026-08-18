@@ -46,7 +46,18 @@ export interface CustomerOrderProps {
     session: {
         token: string;
         expires_at: string;
+        customer_name?: string;
+        customer_phone?: string;
+        mobile_verified?: boolean;
     };
+    active_orders?: Array<{
+        id: number;
+        order_number: string;
+        status: string;
+        payment_status: string;
+        total: number;
+        created_at: string;
+    }>;
     categories: CategoryData[];
     menu_items: MenuItemData[];
 }
@@ -71,6 +82,9 @@ export default function CustomerOrder({
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'pay_at_counter' | 'online'>('pay_at_counter');
     const [customerNotes, setCustomerNotes] = useState('');
+    const [customerName, setCustomerName] = useState(session?.customer_name || '');
+    const [customerPhone, setCustomerPhone] = useState(session?.customer_phone || '');
+    const [detailsError, setDetailsError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState<{ order_number: string; status: string } | null>(null);
     const [requestModalOpen, setRequestModalOpen] = useState(false);
@@ -299,22 +313,43 @@ export default function CustomerOrder({
 
             {/* Main Ordering Area */}
             <main className="max-w-md mx-auto w-full px-4 pt-4 flex-1 space-y-4">
-                {/* Active Order Banner */}
-                {activeOrderNumber && (
-                    <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-stone-950 p-3.5 rounded-2xl shadow-lg border border-amber-400/80 flex items-center justify-between gap-3 animate-fade-in">
-                        <div className="flex items-center gap-2.5">
-                            <span className="text-xl">📦</span>
-                            <div>
-                                <p className="font-extrabold text-xs tracking-tight uppercase">Active Order Placed</p>
-                                <p className="text-[11px] font-mono font-bold opacity-90">#{activeOrderNumber}</p>
-                            </div>
+                {/* Active Orders List Banner */}
+                {((pageProps.active_orders && pageProps.active_orders.length > 0) || activeOrderNumber) && (
+                    <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4 shadow-lg space-y-3">
+                        <div className="flex items-center justify-between border-b border-stone-800 pb-2">
+                            <span className="text-xs font-bold text-stone-200 uppercase tracking-wider">📦 Active Orders</span>
+                            <span className="text-[10px] bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded-full">
+                                {(pageProps.active_orders && pageProps.active_orders.length) || 1} Active
+                            </span>
                         </div>
-                        <a
-                            href={`/order/status/${activeOrderNumber}`}
-                            className="bg-stone-950 hover:bg-stone-900 text-amber-400 font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-md transition-all whitespace-nowrap flex items-center gap-1 border border-stone-800"
-                        >
-                            Track My Order &rarr;
-                        </a>
+                        <div className="space-y-2">
+                            {pageProps.active_orders && pageProps.active_orders.length > 0 ? (
+                                pageProps.active_orders.map((ord: any) => (
+                                    <div key={ord.id} className="flex items-center justify-between bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                                        <div>
+                                            <span className="text-xs font-mono font-bold text-amber-400">#{ord.order_number}</span>
+                                            <span className="text-[10px] ml-2 text-stone-400 capitalize">({ord.status.replace(/_/g, ' ')})</span>
+                                        </div>
+                                        <a
+                                            href={`/order/status/${ord.order_number}`}
+                                            className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[11px] px-3 py-1 rounded-lg transition-colors"
+                                        >
+                                            Track Status &rarr;
+                                        </a>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex items-center justify-between bg-stone-950 p-2.5 rounded-xl border border-stone-800">
+                                    <span className="text-xs font-mono font-bold text-amber-400">#{activeOrderNumber}</span>
+                                    <a
+                                        href={`/order/status/${activeOrderNumber}`}
+                                        className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[11px] px-3 py-1 rounded-lg transition-colors"
+                                    >
+                                        Track Status &rarr;
+                                    </a>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
@@ -493,8 +528,34 @@ export default function CustomerOrder({
                                 </div>
                             ))}
 
+                            {/* Customer Details */}
+                            <div className="pt-4 space-y-3 border-t border-stone-800">
+                                <label className="block text-xs font-bold text-stone-200">Customer Contact Details *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="Your Full Name *"
+                                    value={customerName}
+                                    onChange={(e) => setCustomerName(e.target.value)}
+                                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-amber-500"
+                                />
+                                <input
+                                    type="tel"
+                                    required
+                                    placeholder="Mobile Number (10-digit Indian #) *"
+                                    value={customerPhone}
+                                    onChange={(e) => setCustomerPhone(e.target.value)}
+                                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-amber-500"
+                                />
+                                {detailsError && (
+                                    <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs p-2 rounded-xl">
+                                        ⚠️ {detailsError}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Customer Notes */}
-                            <div className="pt-4">
+                            <div className="pt-3">
                                 <label className="block text-xs font-semibold text-stone-400 mb-1">Kitchen Instructions / Notes</label>
                                 <input
                                     type="text"

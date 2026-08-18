@@ -46,7 +46,8 @@ interface Props {
 }
 
 export default function Subscription({ overview, plans }: Props) {
-    const { cafe } = usePage<{ cafe?: { slug: string; name: string } }>().props;
+    const { tenant } = usePage<{ tenant?: { cafe?: { slug: string; name: string } } }>().props;
+    const cafe = tenant?.cafe;
     const cafeSlug = cafe?.slug || '';
     const [submittingPlanId, setSubmittingPlanId] = useState<number | null>(null);
 

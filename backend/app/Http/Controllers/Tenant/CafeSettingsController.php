@@ -71,6 +71,10 @@ class CafeSettingsController extends Controller
 
         $cafe = app(TenantContext::class)->getCafe();
         $validated = $request->validated();
+        if (isset($validated['logo_url']) && !empty($validated['logo_url'])) {
+            $validated['logo_path'] = $validated['logo_url'];
+        }
+        unset($validated['logo_url']);
 
         if ($request->hasFile('logo')) {
             $diskName = config('filesystems.default', 'public');

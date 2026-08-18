@@ -35,7 +35,7 @@ class KitchenDisplayController extends Controller
 
         $formattedOrders = $orders->map(fn ($o) => [
             'id' => $o->id,
-            'order_number' => $o->order_number,
+            'order_number' => (string) ($o->public_order_number ?? $o->order_number),
             'table_name' => $o->table?->name,
             'status' => $o->status,
             'created_at' => $o->created_at?->toIso8601String(),

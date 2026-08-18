@@ -126,7 +126,12 @@ class InvoiceController extends Controller
         return [
             'id'             => $invoice->id,
             'order_id'       => $invoice->order_id,
-            'order_number'   => $invoice->order?->order_number,
+            'order_number'   => (string) ($invoice->order?->public_order_number ?? $invoice->order?->order_number),
+            'customer_name'  => $invoice->order?->customer_name ?? 'Guest Customer',
+            'customer_phone' => $invoice->order?->customer_phone ?? 'N/A',
+            'table_name'     => $invoice->order?->table?->name ?? 'Table N/A',
+            'branch_name'    => $invoice->order?->branch?->name ?? 'Main Branch',
+            'payment_method' => $invoice->order?->payments?->first()?->method ?? 'cash',
             'invoice_number' => $invoice->invoice_number,
             'subtotal'       => (float) $invoice->subtotal,
             'tax'            => (float) $invoice->tax,

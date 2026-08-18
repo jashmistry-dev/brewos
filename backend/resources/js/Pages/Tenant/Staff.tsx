@@ -222,7 +222,7 @@ export default function Staff({ staff, roles, branches }: StaffProps) {
                         required
                         value={data.role_id}
                         onChange={(e) => setData('role_id', parseInt(e.target.value))}
-                        options={roles.map((r) => ({ value: r.id, label: r.name }))}
+                        options={roles.filter(r => r.slug !== 'super-admin' && r.name !== 'Super Admin').map((r) => ({ value: r.id, label: r.name }))}
                         error={errors.role_id}
                     />
 

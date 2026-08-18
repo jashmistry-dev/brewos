@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 
 export interface CustomerOrderStatusProps {
     qr_url?: string | null;
@@ -28,6 +28,17 @@ export interface CustomerOrderStatusProps {
 }
 
 export default function CustomerOrderStatus({ order, qr_url }: CustomerOrderStatusProps) {
+    React.useEffect(() => {
+        const isTerminal = ['completed', 'cancelled', 'served'].includes(order?.status);
+        if (isTerminal) return;
+
+        const timer = setInterval(() => {
+            router.reload({ only: ['order'] });
+        }, 4000);
+
+        return () => clearInterval(timer);
+    }, [order?.status]);
+
     React.useEffect(() => {
         if (order?.order_number && order?.cafe_slug && order?.qr_token) {
             const storageKey = `brewos_active_order_${order.cafe_slug}_${order.qr_token}`;

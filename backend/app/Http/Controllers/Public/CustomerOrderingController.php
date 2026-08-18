@@ -66,16 +66,32 @@ class CustomerOrderingController extends Controller
             ->where('status', 'active')
             ->get(['id', 'category_id', 'name', 'description', 'price', 'image', 'status']);
 
-        $latestOrder = Order::where('ordering_session_id', $session->id)
+        $activeOrders = Order::where('ordering_session_id', $session->id)
             ->whereNotIn('status', ['completed', 'cancelled'])
             ->orderBy('created_at', 'desc')
-            ->first();
+            ->get();
+        $latestOrder = $activeOrders->first();
 
         $responseData = [
             'active_order' => $latestOrder ? [
-                'order_number' => $latestOrder->order_number,
+                'order_number' => (string) ($latestOrder->public_order_number ?? $latestOrder->order_number),
                 'status'       => $latestOrder->status,
             ] : null,
+            'active_orders' => $activeOrders->map(fn ($o) => [
+                'id'             => $o->id,
+                'order_number'   => (string) ($o->public_order_number ?? $o->order_number),
+                'status'         => $o->status,
+                'payment_status' => $o->payment_status,
+                'total'          => (float) $o->total,
+                'created_at'     => $o->created_at?->toIso8601String(),
+            ])->toArray(),
+            'session' => [
+                'token'           => $session->session_token,
+                'expires_at'      => $session->expires_at->toIso8601String(),
+                'customer_name'   => $session->customer_name,
+                'customer_phone'  => $session->customer_phone,
+                'mobile_verified' => (bool) $session->mobile_verified,
+            ],
             'cafe' => [
                 'id'                              => $cafe->id,
                 'name'                            => $cafe->name,
@@ -102,10 +118,7 @@ class CustomerOrderingController extends Controller
                 'capacity' => $table->capacity,
                 'qr_token' => $table->qr_token,
             ],
-            'session' => [
-                'token'      => $session->session_token,
-                'expires_at' => $session->expires_at->toIso8601String(),
-            ],
+
             'categories' => $categories,
             'menu_items' => $menuItems->map(fn ($item) => [
                 'id'          => $item->id,
@@ -132,6 +145,8 @@ class CustomerOrderingController extends Controller
     {
         $request->validate([
             'session_token'  => ['required', 'string'],
+            'customer_name'  => ['nullable', 'string', 'max:100'],
+            'customer_phone' => ['nullable', 'string', 'max:20'],
             'payment_method' => ['required', 'string', 'in:pay_at_counter,online'],
             'customer_notes' => ['nullable', 'string', 'max:1000'],
             'items'          => ['required', 'array', 'min:1'],
@@ -150,6 +165,14 @@ class CustomerOrderingController extends Controller
                 'error_code' => 'ORDERING_UNAVAILABLE',
             ], 403);
         }
+
+        $custName = $request->input('customer_name') ?? $session->customer_name ?? 'Guest Customer';
+        $custPhone = $request->input('customer_phone') ?? $session->customer_phone ?? '9876543210';
+
+        $session->update([
+            'customer_name'  => $custName,
+            'customer_phone' => $custPhone,
+        ]);
 
         $order = $this->orderingService->submitOrder(
             session: $session,

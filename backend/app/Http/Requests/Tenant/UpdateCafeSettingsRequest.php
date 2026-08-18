@@ -28,6 +28,7 @@ class UpdateCafeSettingsRequest extends FormRequest
             'timezone'    => ['nullable', 'string', 'max:50'],
             'currency'    => ['nullable', 'string', 'max:10'],
             'logo'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,svg', 'max:2048'],
+            'logo_url'    => ['nullable', 'string', 'url', 'max:2048'],
         ];
     }
 }

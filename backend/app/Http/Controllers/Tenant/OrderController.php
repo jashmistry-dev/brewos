@@ -37,7 +37,7 @@ class OrderController extends Controller
             'branch_id' => $o->branch_id,
             'table_id' => $o->table_id,
             'table_name' => $o->table?->name,
-            'order_number' => $o->order_number,
+            'order_number' => (string) ($o->public_order_number ?? $o->order_number),
             'status' => $o->status,
             'payment_status' => $o->payment_status,
             'subtotal' => (float) $o->subtotal,

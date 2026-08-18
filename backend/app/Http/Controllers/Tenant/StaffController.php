@@ -62,7 +62,7 @@ class StaffController extends Controller
 
         $roles = Role::where(function ($q) use ($cafeId) {
             $q->where('cafe_id', $cafeId)
-              ->orWhere(fn ($q2) => $q2->whereNull('cafe_id')->where('scope', 'platform'));
+              ->orWhere(fn ($q2) => $q2->whereNull('cafe_id')->where('scope', 'platform')->where('slug', '!=', 'super-admin'));
         })->get();
 
         $branches = Branch::where('cafe_id', $cafeId)->get();
@@ -98,6 +98,14 @@ class StaffController extends Controller
 
         $cafeId = app(TenantContext::class)->getCafeId();
         $validated = $request->validated();
+
+        $role = Role::find($validated['role_id'] ?? null);
+        if ($role && ($role->slug === 'super-admin' || $role->name === 'Super Admin')) {
+            return response()->json([
+                'message' => 'Super Admin role cannot be assigned to tenant staff.',
+                'errors'  => ['role_id' => ['Super Admin role cannot be assigned to tenant staff.']],
+            ], 422);
+        }
 
         $this->entitlementService->checkStaffLimit($cafeId);
 
@@ -154,6 +162,14 @@ class StaffController extends Controller
             ->firstOrFail();
 
         $validated = $request->validated();
+
+        $role = Role::find($validated['role_id'] ?? null);
+        if ($role && ($role->slug === 'super-admin' || $role->name === 'Super Admin')) {
+            return response()->json([
+                'message' => 'Super Admin role cannot be assigned to tenant staff.',
+                'errors'  => ['role_id' => ['Super Admin role cannot be assigned to tenant staff.']],
+            ], 422);
+        }
 
         DB::transaction(function () use ($membership, $validated) {
             if (isset($validated['name']) || isset($validated['email'])) {
